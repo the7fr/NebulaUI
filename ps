@@ -496,7 +496,6 @@ end
 function NebulaHub:CreateWindow(config)
     config = config or {}
     local Title      = config.Title    or "Nebula Hub"
-    local Subtitle    = config.Subtitle or "v3.3 — script hub"
     local WinSize     = config.Size     or UDim2.new(0, 720, 0, 560)
     local WinPos      = config.Position or UDim2.new(0.5, -360, 0.5, -280)
     local StartTheme  = config.Theme    or "Obsidian"
@@ -591,15 +590,6 @@ function NebulaHub:CreateWindow(config)
         ZIndex = 4, Parent = LogoFrame,
     })
     Corner(4, LogoDot)
-    New("TextLabel", {
-        Text = Subtitle, Size = UDim2.new(1,-30,0,14),
-        Position = UDim2.new(0,24,0,38),
-        BackgroundTransparency = 1, TextColor3 = Theme.Dim,
-        Font = Theme.Font, TextSize = 10,
-        TextXAlignment = Enum.TextXAlignment.Left,
-        TextTruncate = Enum.TextTruncate.AtEnd,
-        ZIndex = 4, Parent = LogoFrame,
-    })
 
     local TabScroll = New("ScrollingFrame", {
         Position = UDim2.new(0,0,0,TABS_TOP),
