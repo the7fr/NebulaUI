@@ -1,5 +1,10 @@
 --[[
-    NebulaHub UI Library — v3.0
+    NebulaHub UI Library — v3.1
+    ─────────────────────────────────────────────────────────────────────────────
+    Changes in this version:
+      • Hamburger toggle now sits in its own row ABOVE the game thumbnail / name
+      • Color picker reworked into an actual circular hue/saturation wheel
+        + a separate value (brightness) slider underneath
     ─────────────────────────────────────────────────────────────────────────────
     Features:
       • Collapsible icon-only sidebar (hamburger toggles label visibility)
@@ -9,7 +14,7 @@
       • Glassmorphic premium notifications with progress bar + icon
       • Notification queue (stacks, doesn't overlap)
       • Elements: Button, Toggle, Slider, Dropdown, Input, Keybind,
-                  ColorPicker, Label, Paragraph, Separator
+                  ColorPicker (wheel), Label, Paragraph, Separator
       • Dynamic inputs (SetValue / GetValue on everything)
       • Nested elements via AddGroup (collapsible card)
       • Icon support via Nebula Icon Library (auto-loaded)
@@ -221,7 +226,6 @@ local function MakeDraggable(frame, handle)
 end
 
 -- ─── Notification queue ───────────────────────────────────────────────────────
--- We keep a shared queue so toasts stack vertically without overlapping.
 local _notifSlots = {}  -- array of {frame, height}
 local _NOTIF_GAP  = 8
 local _NOTIF_RIGHT = -14
@@ -261,7 +265,6 @@ function NebulaHub:CreateWindow(config)
     pcall(function()
         local info = MarketplaceService:GetProductInfo(placeId)
         gameName = info.Name or gameName
-        -- Game thumbnail via Roblox CDN URL pattern
         gameThumb = "https://www.roblox.com/asset-thumbnail/image?assetId="
             .. tostring(placeId) .. "&width=150&height=150&format=png"
     end)
@@ -308,6 +311,17 @@ function NebulaHub:CreateWindow(config)
     local SIDE_EXPANDED  = 172  -- icon + label width
     local sideExpanded   = false
 
+    -- Layout constants for the top of the sidebar:
+    --   [ Hamburger row : 0 -> 44 ]
+    --   [ Logo / game info : 44 -> 124 ]
+    --   [ Divider : 120 ]
+    --   [ Tab scroll : 128 -> ... ]
+    local HAM_ROW_H  = 44
+    local LOGO_H     = 80
+    local LOGO_TOP   = HAM_ROW_H
+    local DIVIDER_Y  = LOGO_TOP + LOGO_H - 4
+    local TABS_TOP   = LOGO_TOP + LOGO_H + 4
+
     local Sidebar = New("Frame", {
         Name = "Sidebar",
         Size = UDim2.new(0, SIDE_COLLAPSED, 1, 0),
@@ -325,13 +339,19 @@ function NebulaHub:CreateWindow(config)
     })
     local sideStroke = Stroke(Theme.Border, 1, Sidebar)
 
-    -- Hamburger button (top-right of sidebar)
+    -- ── Hamburger row (now its own row, above the logo/game info) ───────────
+    local HamRow = New("Frame", {
+        Size = UDim2.new(1,0,0,HAM_ROW_H),
+        Position = UDim2.new(0,0,0,0),
+        BackgroundTransparency = 1,
+        ZIndex = 3, Parent = Sidebar,
+    })
     local HamBtn = New("TextButton", {
         Text = "", Size = UDim2.new(0,28,0,28),
-        Position = UDim2.new(1,-38,0,10),
+        Position = UDim2.new(1,-38,0.5,-14),
         BackgroundColor3 = Theme.Surface2,
         BorderSizePixel = 0, AutoButtonColor = false,
-        ZIndex = 10, Parent = Sidebar,
+        ZIndex = 10, Parent = HamRow,
     })
     Corner(7, HamBtn)
     Stroke(Theme.Border2, 1, HamBtn)
@@ -344,10 +364,16 @@ function NebulaHub:CreateWindow(config)
             BorderSizePixel = 0, ZIndex = 11, Parent = HamBtn,
         })
     end
+    local hamRowDivider = New("Frame", {
+        Size = UDim2.new(1,-16,0,1), Position = UDim2.new(0,8,1,-1),
+        BackgroundColor3 = Theme.Border, BorderSizePixel = 0,
+        ZIndex = 3, Parent = HamRow,
+    })
 
-    -- Logo area (top of sidebar)
+    -- Logo area (below hamburger row)
     local LogoFrame = New("Frame", {
-        Size = UDim2.new(1,0,0,80),
+        Size = UDim2.new(1,0,0,LOGO_H),
+        Position = UDim2.new(0,0,0,LOGO_TOP),
         BackgroundTransparency = 1,
         ZIndex = 3, Parent = Sidebar,
     })
@@ -389,15 +415,15 @@ function NebulaHub:CreateWindow(config)
     })
 
     local logoDivider = New("Frame", {
-        Size = UDim2.new(1,-16,0,1), Position = UDim2.new(0,8,0,76),
+        Size = UDim2.new(1,-16,0,1), Position = UDim2.new(0,8,0,DIVIDER_Y),
         BackgroundColor3 = Theme.Border, BorderSizePixel = 0,
         ZIndex = 3, Parent = Sidebar,
     })
 
     -- Tab button scroll container
     local TabScroll = New("ScrollingFrame", {
-        Size = UDim2.new(1,0,1,-140),
-        Position = UDim2.new(0,0,0,84),
+        Size = UDim2.new(1,0,1,-(TABS_TOP+56)),
+        Position = UDim2.new(0,0,0,TABS_TOP),
         BackgroundTransparency = 1, BorderSizePixel = 0,
         ScrollBarThickness = 0,
         CanvasSize = UDim2.new(0,0,0,0),
@@ -514,7 +540,6 @@ function NebulaHub:CreateWindow(config)
     Tween(Main, {Size=WinSize, BackgroundTransparency=0}, 0.3, Enum.EasingStyle.Back)
 
     -- ── Theme applier (re-colors all tracked objects) ─────────────────────────
-    -- We track a list of { obj, prop, themeKey } tuples
     local _themed = {}
     local function Track(obj, prop, key)
         table.insert(_themed, {obj=obj, prop=prop, key=key})
@@ -546,12 +571,10 @@ function NebulaHub:CreateWindow(config)
         local tc = typeColors[ncfg.Type or "info"] or Theme.Blue
         local dur = ncfg.Duration or 4
 
-        -- Card height depends on whether there's a message
         local cardH = ncfg.Message and 78 or 56
 
         local Toast = New("Frame", {
             Size = UDim2.new(0, NOTIF_W, 0, cardH),
-            -- Start off-screen to the right
             Position = UDim2.new(1, NOTIF_W+20, 1, -cardH),
             AnchorPoint = Vector2.new(0, 1),
             BackgroundColor3 = Theme.Surface2,
@@ -562,15 +585,12 @@ function NebulaHub:CreateWindow(config)
             Parent = Gui,
         })
         Corner(12, Toast)
-        -- Colored left accent bar
         local AccentBar = New("Frame", {
             Size = UDim2.new(0,3,1,-16), Position = UDim2.new(0,0,0,8),
             BackgroundColor3 = tc, BorderSizePixel = 0, ZIndex = 201, Parent = Toast,
         })
         Corner(2, AccentBar)
-        -- Top colored stroke
         Stroke(tc, 1, Toast)
-        -- Subtle inner glow tint
         local Tint = New("Frame", {
             Size = UDim2.new(1,0,0,2),
             BackgroundColor3 = tc, BorderSizePixel = 0,
@@ -578,7 +598,6 @@ function NebulaHub:CreateWindow(config)
             ZIndex = 201, Parent = Toast,
         })
 
-        -- Icon circle
         local IconCircle = New("Frame", {
             Size = UDim2.new(0,32,0,32), Position = UDim2.new(0,14,0, math.floor((cardH-32)/2)),
             BackgroundColor3 = tc, BackgroundTransparency = 0.78,
@@ -593,7 +612,6 @@ function NebulaHub:CreateWindow(config)
         if ncfg.Icon then
             ApplyIcon(IconImg, ncfg.Icon, ncfg.IconSource or "Symbols")
         else
-            -- Default type icon (using text fallback)
             local typeIcons = {
                 info = "info", success = "check_circle",
                 warning = "warning", error = "error",
@@ -624,7 +642,6 @@ function NebulaHub:CreateWindow(config)
             })
         end
 
-        -- Progress bar
         local ProgTrack = New("Frame", {
             Size = UDim2.new(1,0,0,3), Position = UDim2.new(0,0,1,-3),
             BackgroundColor3 = Theme.Surface3, BorderSizePixel = 0,
@@ -635,17 +652,14 @@ function NebulaHub:CreateWindow(config)
             BorderSizePixel = 0, ZIndex = 204, Parent = ProgTrack,
         })
 
-        -- Register in stack
         local slot = {frame=Toast, height=cardH}
         table.insert(_notifStack, slot)
 
-        -- Position: stack above previous toasts
         local bottomY = -14
         for i = #_notifStack, 1, -1 do
             local s = _notifStack[i]
             local targetPos = UDim2.new(1, _NOTIF_RIGHT - NOTIF_W, 1, bottomY - s.height)
             if i == #_notifStack then
-                -- Animate in
                 Tween(s.frame, {Position = targetPos}, 0.3, Enum.EasingStyle.Back)
             else
                 Tween(s.frame, {Position = targetPos}, 0.22)
@@ -653,16 +667,12 @@ function NebulaHub:CreateWindow(config)
             bottomY = bottomY - s.height - _NOTIF_GAP
         end
 
-        -- Progress bar countdown
         Tween(ProgFill, {Size = UDim2.new(0,0,1,0)}, dur, Enum.EasingStyle.Linear)
 
-        -- Dismiss
         local function Dismiss()
-            -- Remove from stack
             for i, s in ipairs(_notifStack) do
                 if s == slot then table.remove(_notifStack, i) break end
             end
-            -- Restack remaining
             local by = -14
             for i = #_notifStack, 1, -1 do
                 local s = _notifStack[i]
@@ -683,11 +693,10 @@ function NebulaHub:CreateWindow(config)
     local Window = {
         _tabs      = {},
         _activeTab = nil,
-        _keybinds  = {},   -- { key=KeyCode, fn=function }
+        _keybinds  = {},
         _gui       = Gui,
     }
 
-    -- Global keybind listener (once per window)
     UserInputService.InputBegan:Connect(function(input, gp)
         if gp then return end
         for _, kb in ipairs(Window._keybinds) do
@@ -710,7 +719,6 @@ function NebulaHub:CreateWindow(config)
         tcfg = tcfg or {}
         local isFirst = #self._tabs == 0
 
-        -- Sidebar button
         local TabBtn = New("TextButton", {
             Text = "", Size = UDim2.new(1,0,0,36),
             BackgroundColor3 = Theme.Surface3,
@@ -721,7 +729,6 @@ function NebulaHub:CreateWindow(config)
         })
         Corner(8, TabBtn)
 
-        -- Accent bar (left edge)
         local AccBar = New("Frame", {
             Size = UDim2.new(0,2,0,18), Position = UDim2.new(0,0,0.5,-9),
             BackgroundColor3 = Theme.Accent, BorderSizePixel = 0,
@@ -730,7 +737,6 @@ function NebulaHub:CreateWindow(config)
         })
         Corner(2, AccBar)
 
-        -- Tab icon (always visible)
         local TabIcon = New("ImageLabel", {
             Size = UDim2.new(0,16,0,16),
             Position = UDim2.new(0,10,0.5,-8),
@@ -740,7 +746,6 @@ function NebulaHub:CreateWindow(config)
         })
         if tcfg.Icon then ApplyIcon(TabIcon, tcfg.Icon, tcfg.IconSource) end
 
-        -- Tab name label (hidden when collapsed)
         local TabLbl = New("TextLabel", {
             Text = name, Size = UDim2.new(1,-36,1,0),
             Position = UDim2.new(0,32,0,0),
@@ -748,12 +753,11 @@ function NebulaHub:CreateWindow(config)
             TextColor3 = isFirst and Theme.Text or Theme.Muted,
             Font = Theme.Font, TextSize = 12,
             TextXAlignment = Enum.TextXAlignment.Left,
-            Visible = sideExpanded,   -- only shown when expanded
+            Visible = sideExpanded,
             ZIndex = 5, Parent = TabBtn,
         })
         table.insert(_sidebarLabels, TabLbl)
 
-        -- Page (scrolling content)
         local Page = New("ScrollingFrame", {
             Name = name.."Page",
             Size = UDim2.new(1,0,1,0),
@@ -808,7 +812,6 @@ function NebulaHub:CreateWindow(config)
 
         local function NO() Tab._order += 1 return Tab._order end
 
-        -- Shared icon helper for element rows
         local function RowIconImg(parent, val, src, posX, posY, sz)
             sz = sz or 14
             local img = New("ImageLabel", {
@@ -825,7 +828,6 @@ function NebulaHub:CreateWindow(config)
 
         local function TextX(iconVisible) return iconVisible and 34 or 14 end
 
-        -- Row base frame
         local function RowFrame(h, parent)
             local f = New("Frame", {
                 Size = UDim2.new(1,0,0,h or 36),
@@ -956,7 +958,6 @@ function NebulaHub:CreateWindow(config)
                 ZIndex = 2, Parent = Header,
             })
 
-            -- Inner content container
             local Inner = New("Frame", {
                 Size = UDim2.new(1,-16,0,0), AutomaticSize = Enum.AutomaticSize.Y,
                 Position = UDim2.new(0,8,0,40),
@@ -975,12 +976,9 @@ function NebulaHub:CreateWindow(config)
                 Inner.Visible = groupOpen
             end)
 
-            -- Return a sub-Tab API pointing at Inner
             local SubTab = { _page=Inner, _order=0, _screen=Gui, _window=Window }
             local function SNO() SubTab._order += 1 return SubTab._order end
 
-            -- Copy all element methods to SubTab pointing at Inner
-            -- (We'll share the same constructors, just bound to Inner)
             local function SubRowFrame(h)
                 local f = New("Frame", {
                     Size = UDim2.new(1,0,0,h or 36),
@@ -1274,7 +1272,6 @@ function NebulaHub:CreateWindow(config)
                 GetValue=function() return sel end,
                 SetOptions=function(_, newOpts)
                     opts = newOpts
-                    -- rebuild (simple: clear and re-add)
                     for _, c in ipairs(DD:GetChildren()) do
                         if c:IsA("TextButton") then c:Destroy() end
                     end
@@ -1340,11 +1337,18 @@ function NebulaHub:CreateWindow(config)
             }
         end
 
+        -- ── AddColorPicker — now an actual circular hue/saturation WHEEL ──────
+        -- Layout:
+        --   • Circular wheel: angle = hue (0..360°), radius = saturation (0 center -> 1 edge)
+        --   • Separate horizontal "Value" (brightness) bar underneath the wheel
+        --   • Hex box for direct entry
         Tab._addColorPicker = function(cfg, parent, orderFn)
             cfg = cfg or {} parent = parent or Page orderFn = orderFn or NO
             local col = cfg.Default or Color3.fromRGB(124,111,255)
             local h,s,v = Color3.toHSV(col)
+
             local open = false
+            local WHEEL_D = 150  -- wheel diameter
 
             local C = New("Frame",{
                 Size=UDim2.new(1,0,0,36),
@@ -1376,52 +1380,64 @@ function NebulaHub:CreateWindow(config)
             })
             Corner(5,Swatch) Stroke(Theme.Border2,1,Swatch)
 
-            -- Body
+            -- Body: wheel + value bar + hex
+            local BODY_H = WHEEL_D + 16 + 24 + 8 + 30 + 10
             local Body = New("Frame",{
-                Size=UDim2.new(1,0,0,200), Position=UDim2.new(0,0,0,40),
+                Size=UDim2.new(1,0,0,BODY_H), Position=UDim2.new(0,0,0,40),
                 BackgroundTransparency=1, ZIndex=2, Parent=C,
             })
 
-            -- SV square
-            local SV = New("ImageLabel",{
-                Size=UDim2.new(1,-28,0,128), Position=UDim2.new(0,14,0,6),
-                BackgroundColor3=Color3.fromHSV(h,1,1), BorderSizePixel=0,
-                Image="rbxassetid://6903835898",
+            -- The wheel itself, centered horizontally
+            local WheelHolder = New("Frame",{
+                Size=UDim2.new(0,WHEEL_D,0,WHEEL_D),
+                Position=UDim2.new(0.5,-WHEEL_D/2,0,8),
+                BackgroundTransparency=1,
                 ZIndex=3, Parent=Body,
             })
-            Corner(6,SV)
-            New("ImageLabel",{
-                Size=UDim2.new(1,0,1,0), BackgroundTransparency=1,
-                Image="rbxassetid://6903835897",
-                ZIndex=4, Parent=SV,
+            -- Hue/Saturation wheel image (full 360° hue ring, saturation from
+            -- center=white to edge=full color). If this asset id is unavailable
+            -- on your asset pipeline, swap it for any hue-saturation wheel image.
+            local Wheel = New("ImageLabel",{
+                Size=UDim2.new(1,0,1,0),
+                BackgroundTransparency=1,
+                Image="rbxassetid://4805639000",
+                ZIndex=3, Parent=WheelHolder,
             })
-            Corner(6, SV:FindFirstChildOfClass("ImageLabel"))
-            local SVCur = New("Frame",{
-                Size=UDim2.new(0,14,0,14), AnchorPoint=Vector2.new(0.5,0.5),
-                Position=UDim2.new(s,0,1-v,0),
-                BackgroundColor3=Color3.new(1,1,1), BorderSizePixel=0,
-                ZIndex=6, Parent=SV,
-            })
-            Corner(7,SVCur) Stroke(Color3.new(0,0,0),1.5,SVCur)
+            Corner(WHEEL_D/2, Wheel)
+            -- Thin ring border for definition
+            Stroke(Theme.Border2, 1, WheelHolder)
+            Corner(WHEEL_D/2, WheelHolder)
 
-            -- Hue bar
-            local HBar = New("ImageLabel",{
-                Size=UDim2.new(1,-28,0,14), Position=UDim2.new(0,14,0,142),
-                Image="rbxassetid://6903835902", BorderSizePixel=0,
-                ZIndex=3, Parent=Body,
-            })
-            Corner(4,HBar)
-            local HCur = New("Frame",{
-                Size=UDim2.new(0,8,1,6), AnchorPoint=Vector2.new(0.5,0.5),
-                Position=UDim2.new(h,0,0.5,0),
+            local WheelCur = New("Frame",{
+                Size=UDim2.new(0,14,0,14), AnchorPoint=Vector2.new(0.5,0.5),
                 BackgroundColor3=Color3.new(1,1,1), BorderSizePixel=0,
-                ZIndex=5, Parent=HBar,
+                ZIndex=6, Parent=WheelHolder,
             })
-            Corner(3,HCur) Stroke(Color3.new(0,0,0),1,HCur)
+            Corner(7,WheelCur) Stroke(Color3.new(0,0,0),1.5,WheelCur)
+
+            -- Value (brightness) bar
+            local VRow = New("Frame",{
+                Size=UDim2.new(1,-28,0,24), Position=UDim2.new(0,14,0,WHEEL_D+16),
+                BackgroundTransparency=1, ZIndex=3, Parent=Body,
+            })
+            local VTrack = New("Frame",{
+                Size=UDim2.new(1,0,0,10), Position=UDim2.new(0,0,0.5,-5),
+                BackgroundColor3=Color3.fromHSV(h,s,1), BorderSizePixel=0,
+                ZIndex=3, Parent=VRow,
+            })
+            Corner(5,VTrack)
+            Stroke(Theme.Border2, 1, VTrack)
+            local VCur = New("Frame",{
+                Size=UDim2.new(0,10,0,18), AnchorPoint=Vector2.new(0.5,0.5),
+                Position=UDim2.new(v,0,0.5,0),
+                BackgroundColor3=Color3.new(1,1,1), BorderSizePixel=0,
+                ZIndex=5, Parent=VTrack,
+            })
+            Corner(4,VCur) Stroke(Color3.new(0,0,0),1.5,VCur)
 
             -- Hex + preview
             local BRow = New("Frame",{
-                Size=UDim2.new(1,-28,0,30), Position=UDim2.new(0,14,0,162),
+                Size=UDim2.new(1,-28,0,30), Position=UDim2.new(0,14,0,WHEEL_D+16+24+8),
                 BackgroundTransparency=1, ZIndex=3, Parent=Body,
             })
             local HexBox = New("TextBox",{
@@ -1444,9 +1460,16 @@ function NebulaHub:CreateWindow(config)
             local function Commit()
                 col = Color3.fromHSV(h,s,v)
                 Swatch.BackgroundColor3 = col
-                SV.BackgroundColor3 = Color3.fromHSV(h,1,1)
-                SVCur.Position = UDim2.new(s,0,1-v,0)
-                HCur.Position = UDim2.new(h,0,0.5,0)
+                -- Place the wheel cursor: angle = hue around the circle, radius = saturation
+                local ang = h * math.pi * 2
+                local rad = s * (WHEEL_D/2)
+                local cx, cy = WHEEL_D/2, WHEEL_D/2
+                WheelCur.Position = UDim2.new(
+                    0, cx + math.cos(ang) * rad,
+                    0, cy + math.sin(ang) * rad
+                )
+                VTrack.BackgroundColor3 = Color3.fromHSV(h,s,1)
+                VCur.Position = UDim2.new(v,0,0.5,0)
                 local r2,g2,b2=math.round(col.R*255),math.round(col.G*255),math.round(col.B*255)
                 HexBox.Text = string.format("#%02X%02X%02X",r2,g2,b2)
                 RGBLbl.Text = string.format("R%d G%d B%d",r2,g2,b2)
@@ -1454,33 +1477,45 @@ function NebulaHub:CreateWindow(config)
             end
             Commit()
 
-            local svDrag,hDrag=false,false
-            SV.InputBegan:Connect(function(i)
+            local wheelDrag, vDrag = false, false
+
+            local function UpdateFromWheel(pos)
+                local cx = WheelHolder.AbsolutePosition.X + WHEEL_D/2
+                local cy = WheelHolder.AbsolutePosition.Y + WHEEL_D/2
+                local dx, dy = pos.X - cx, pos.Y - cy
+                local dist = math.sqrt(dx*dx + dy*dy)
+                local maxR = WHEEL_D/2
+                s = math.clamp(dist / maxR, 0, 1)
+                local ang = math.atan2(dy, dx)
+                if ang < 0 then ang = ang + math.pi*2 end
+                h = ang / (math.pi*2)
+                Commit()
+            end
+
+            WheelHolder.InputBegan:Connect(function(i)
                 if i.UserInputType==Enum.UserInputType.MouseButton1 then
-                    svDrag=true
-                    s=math.clamp((i.Position.X-SV.AbsolutePosition.X)/SV.AbsoluteSize.X,0,1)
-                    v=1-math.clamp((i.Position.Y-SV.AbsolutePosition.Y)/SV.AbsoluteSize.Y,0,1)
-                    Commit()
+                    wheelDrag = true
+                    UpdateFromWheel(i.Position)
                 end
             end)
-            HBar.InputBegan:Connect(function(i)
+            VTrack.InputBegan:Connect(function(i)
                 if i.UserInputType==Enum.UserInputType.MouseButton1 then
-                    hDrag=true
-                    h=math.clamp((i.Position.X-HBar.AbsolutePosition.X)/HBar.AbsoluteSize.X,0,0.9999)
+                    vDrag = true
+                    v = math.clamp((i.Position.X-VTrack.AbsolutePosition.X)/VTrack.AbsoluteSize.X,0,1)
                     Commit()
                 end
             end)
             UserInputService.InputEnded:Connect(function(i)
-                if i.UserInputType==Enum.UserInputType.MouseButton1 then svDrag=false hDrag=false end
+                if i.UserInputType==Enum.UserInputType.MouseButton1 then
+                    wheelDrag=false vDrag=false
+                end
             end)
             UserInputService.InputChanged:Connect(function(i)
                 if i.UserInputType==Enum.UserInputType.MouseMovement then
-                    if svDrag then
-                        s=math.clamp((i.Position.X-SV.AbsolutePosition.X)/SV.AbsoluteSize.X,0,1)
-                        v=1-math.clamp((i.Position.Y-SV.AbsolutePosition.Y)/SV.AbsoluteSize.Y,0,1)
-                        Commit()
-                    elseif hDrag then
-                        h=math.clamp((i.Position.X-HBar.AbsolutePosition.X)/HBar.AbsoluteSize.X,0,0.9999)
+                    if wheelDrag then
+                        UpdateFromWheel(i.Position)
+                    elseif vDrag then
+                        v = math.clamp((i.Position.X-VTrack.AbsolutePosition.X)/VTrack.AbsoluteSize.X,0,1)
                         Commit()
                     end
                 end
@@ -1501,7 +1536,7 @@ function NebulaHub:CreateWindow(config)
 
             Head.MouseButton1Click:Connect(function()
                 open=not open
-                Tween(C,{Size=UDim2.new(1,0,0,open and 36+200+4 or 36)},0.2)
+                Tween(C,{Size=UDim2.new(1,0,0,open and 36+BODY_H+4 or 36)},0.2)
             end)
             return {
                 GetValue=function() return col end,
@@ -1524,9 +1559,8 @@ function NebulaHub:CreateWindow(config)
             cfg = cfg or {}
             local curKey  = cfg.Default or Enum.KeyCode.Unknown
             local listen  = false
-            local action  = cfg.Action   -- optional: function called when key pressed globally
+            local action  = cfg.Action
 
-            -- Register global action
             if action then
                 table.insert(Window._keybinds, {
                     key = curKey,
