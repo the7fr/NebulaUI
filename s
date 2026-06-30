@@ -312,15 +312,16 @@ function NebulaHub:CreateWindow(config)
     local sideExpanded   = false
 
     -- Layout constants for the top of the sidebar:
-    --   [ Hamburger row : 0 -> 44 ]
-    --   [ Logo / game info : 44 -> 124 ]
-    --   [ Divider : 120 ]
-    --   [ Tab scroll : 128 -> ... ]
-    local HAM_ROW_H  = 44
-    local LOGO_H     = 80
-    local LOGO_TOP   = HAM_ROW_H
-    local DIVIDER_Y  = LOGO_TOP + LOGO_H - 4
-    local TABS_TOP   = LOGO_TOP + LOGO_H + 4
+    --   [ Logo / game info (tight, auto-fit) : 0 -> 56 ]   "Nebula Hub" sits at the very top
+    --   [ Hamburger row : 56 -> 92 ]
+    --   [ Divider : 88 ]
+    --   [ Tab scroll : 96 -> ... ]
+    local LOGO_H     = 56   -- tight fit, no dead space below the name/subtitle
+    local HAM_ROW_H  = 36
+    local LOGO_TOP   = 0
+    local HAM_TOP    = LOGO_TOP + LOGO_H
+    local DIVIDER_Y  = HAM_TOP + HAM_ROW_H - 4
+    local TABS_TOP   = HAM_TOP + HAM_ROW_H + 4
 
     local Sidebar = New("Frame", {
         Name = "Sidebar",
@@ -339,16 +340,61 @@ function NebulaHub:CreateWindow(config)
     })
     local sideStroke = Stroke(Theme.Border, 1, Sidebar)
 
-    -- ── Hamburger row (now its own row, above the logo/game info) ───────────
+    -- Logo area — sits at the very top of the sidebar, tight fit (no dead space)
+    local LogoFrame = New("Frame", {
+        Size = UDim2.new(1,0,0,LOGO_H),
+        Position = UDim2.new(0,0,0,LOGO_TOP),
+        BackgroundTransparency = 1,
+        ZIndex = 3, Parent = Sidebar,
+    })
+    -- Game thumbnail
+    local GameThumb = New("ImageLabel", {
+        Size = UDim2.new(0,32,0,32), Position = UDim2.new(0,10,0,11),
+        BackgroundColor3 = Theme.Surface3, BorderSizePixel = 0,
+        Image = gameThumb, ImageTransparency = 0.1,
+        ZIndex = 4, Parent = LogoFrame,
+    })
+    Corner(8, GameThumb)
+    Stroke(Theme.Border2, 1, GameThumb)
+    -- Logo dot accent (shown when collapsed)
+    local LogoDot = New("Frame", {
+        Size = UDim2.new(0,8,0,8), Position = UDim2.new(0,32,0,35),
+        BackgroundColor3 = Theme.Accent, BorderSizePixel = 0,
+        ZIndex = 5, Parent = LogoFrame,
+    })
+    Corner(4, LogoDot)
+
+    -- Title + game name labels (hidden when collapsed) — "Nebula Hub" is the
+    -- very first thing in the sidebar
+    local TitleLbl = New("TextLabel", {
+        Text = Title, Size = UDim2.new(1,-52,0,16),
+        Position = UDim2.new(0,48,0,9),
+        BackgroundTransparency = 1, TextColor3 = Theme.Text,
+        Font = Theme.FontBold, TextSize = 13,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        TextTruncate = Enum.TextTruncate.AtEnd,
+        Visible = false, ZIndex = 4, Parent = LogoFrame,
+    })
+    local GameLbl = New("TextLabel", {
+        Text = gameName, Size = UDim2.new(1,-52,0,11),
+        Position = UDim2.new(0,48,0,27),
+        BackgroundTransparency = 1, TextColor3 = Theme.Dim,
+        Font = Theme.Font, TextSize = 9,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        TextTruncate = Enum.TextTruncate.AtEnd,
+        Visible = false, ZIndex = 4, Parent = LogoFrame,
+    })
+
+    -- ── Hamburger row (now BELOW the title/logo, in its own slim row) ───────
     local HamRow = New("Frame", {
         Size = UDim2.new(1,0,0,HAM_ROW_H),
-        Position = UDim2.new(0,0,0,0),
+        Position = UDim2.new(0,0,0,HAM_TOP),
         BackgroundTransparency = 1,
         ZIndex = 3, Parent = Sidebar,
     })
     local HamBtn = New("TextButton", {
-        Text = "", Size = UDim2.new(0,28,0,28),
-        Position = UDim2.new(1,-38,0.5,-14),
+        Text = "", Size = UDim2.new(0,26,0,26),
+        Position = UDim2.new(1,-36,0.5,-13),
         BackgroundColor3 = Theme.Surface2,
         BorderSizePixel = 0, AutoButtonColor = false,
         ZIndex = 10, Parent = HamRow,
@@ -358,61 +404,12 @@ function NebulaHub:CreateWindow(config)
     -- Three-line hamburger icon drawn with frames
     for i = 0, 2 do
         New("Frame", {
-            Size = UDim2.new(0, i == 1 and 10 or 14, 0, 2),
-            Position = UDim2.new(0.5, i==1 and -5 or -7, 0, 8 + i*6),
+            Size = UDim2.new(0, i == 1 and 9 or 13, 0, 2),
+            Position = UDim2.new(0.5, i==1 and -4.5 or -6.5, 0, 7 + i*6),
             BackgroundColor3 = Theme.Muted,
             BorderSizePixel = 0, ZIndex = 11, Parent = HamBtn,
         })
     end
-    local hamRowDivider = New("Frame", {
-        Size = UDim2.new(1,-16,0,1), Position = UDim2.new(0,8,1,-1),
-        BackgroundColor3 = Theme.Border, BorderSizePixel = 0,
-        ZIndex = 3, Parent = HamRow,
-    })
-
-    -- Logo area (below hamburger row)
-    local LogoFrame = New("Frame", {
-        Size = UDim2.new(1,0,0,LOGO_H),
-        Position = UDim2.new(0,0,0,LOGO_TOP),
-        BackgroundTransparency = 1,
-        ZIndex = 3, Parent = Sidebar,
-    })
-    -- Game thumbnail
-    local GameThumb = New("ImageLabel", {
-        Size = UDim2.new(0,32,0,32), Position = UDim2.new(0,10,0,10),
-        BackgroundColor3 = Theme.Surface3, BorderSizePixel = 0,
-        Image = gameThumb, ImageTransparency = 0.1,
-        ZIndex = 4, Parent = LogoFrame,
-    })
-    Corner(8, GameThumb)
-    Stroke(Theme.Border2, 1, GameThumb)
-    -- Logo dot accent (shown when collapsed)
-    local LogoDot = New("Frame", {
-        Size = UDim2.new(0,8,0,8), Position = UDim2.new(0,32,0,34),
-        BackgroundColor3 = Theme.Accent, BorderSizePixel = 0,
-        ZIndex = 5, Parent = LogoFrame,
-    })
-    Corner(4, LogoDot)
-
-    -- Title + game name labels (hidden when collapsed)
-    local TitleLbl = New("TextLabel", {
-        Text = Title, Size = UDim2.new(1,-52,0,16),
-        Position = UDim2.new(0,48,0,10),
-        BackgroundTransparency = 1, TextColor3 = Theme.Text,
-        Font = Theme.FontBold, TextSize = 13,
-        TextXAlignment = Enum.TextXAlignment.Left,
-        TextTruncate = Enum.TextTruncate.AtEnd,
-        Visible = false, ZIndex = 4, Parent = LogoFrame,
-    })
-    local GameLbl = New("TextLabel", {
-        Text = gameName, Size = UDim2.new(1,-52,0,11),
-        Position = UDim2.new(0,48,0,28),
-        BackgroundTransparency = 1, TextColor3 = Theme.Dim,
-        Font = Theme.Font, TextSize = 9,
-        TextXAlignment = Enum.TextXAlignment.Left,
-        TextTruncate = Enum.TextTruncate.AtEnd,
-        Visible = false, ZIndex = 4, Parent = LogoFrame,
-    })
 
     local logoDivider = New("Frame", {
         Size = UDim2.new(1,-16,0,1), Position = UDim2.new(0,8,0,DIVIDER_Y),
@@ -557,8 +554,13 @@ function NebulaHub:CreateWindow(config)
     end)
 
     -- Notification helper (shared state on Gui)
+    -- Redesigned to mirror the main window's chrome: a colored top edge,
+    -- a header strip with a type icon badge + title, and the player's own
+    -- headshot + username pinned top-right — just like the user card in
+    -- the sidebar, so the toast reads as part of the same UI.
     local _notifStack = {}
-    local NOTIF_W = 300
+    local NOTIF_W = 320
+    local NOTIF_HEADER_H = 36
 
     local function FireNotif(ncfg)
         ncfg = ncfg or {}
@@ -571,43 +573,54 @@ function NebulaHub:CreateWindow(config)
         local tc = typeColors[ncfg.Type or "info"] or Theme.Blue
         local dur = ncfg.Duration or 4
 
-        local cardH = ncfg.Message and 78 or 56
+        local cardH = NOTIF_HEADER_H + (ncfg.Message and 46 or 22)
 
         local Toast = New("Frame", {
             Size = UDim2.new(0, NOTIF_W, 0, cardH),
-            Position = UDim2.new(1, NOTIF_W+20, 1, -cardH),
+            Position = UDim2.new(1, NOTIF_W+24, 1, -cardH),
             AnchorPoint = Vector2.new(0, 1),
-            BackgroundColor3 = Theme.Surface2,
-            BackgroundTransparency = 0.08,
+            BackgroundColor3 = Theme.Surface,
+            BackgroundTransparency = 0.02,
             BorderSizePixel = 0,
             ZIndex = 200,
             ClipsDescendants = true,
             Parent = Gui,
         })
-        Corner(12, Toast)
-        local AccentBar = New("Frame", {
-            Size = UDim2.new(0,3,1,-16), Position = UDim2.new(0,0,0,8),
-            BackgroundColor3 = tc, BorderSizePixel = 0, ZIndex = 201, Parent = Toast,
+        Corner(14, Toast)
+        Stroke(Theme.Border, 1, Toast)
+
+        -- Soft colored glow behind the card (same asset as the main window glow)
+        local NGlow = New("ImageLabel", {
+            Size = UDim2.new(1,40,1,40), Position = UDim2.new(0,-20,0,-20),
+            BackgroundTransparency = 1,
+            Image = "rbxassetid://6015897843",
+            ImageColor3 = tc, ImageTransparency = 0.82,
+            ZIndex = 199, Parent = Toast,
         })
-        Corner(2, AccentBar)
-        Stroke(tc, 1, Toast)
-        local Tint = New("Frame", {
-            Size = UDim2.new(1,0,0,2),
+
+        -- Colored top edge (clipped to the card's rounded corners)
+        New("Frame", {
+            Size = UDim2.new(1,0,0,3), Position = UDim2.new(0,0,0,0),
             BackgroundColor3 = tc, BorderSizePixel = 0,
-            BackgroundTransparency = 0.5,
             ZIndex = 201, Parent = Toast,
         })
 
-        local IconCircle = New("Frame", {
-            Size = UDim2.new(0,32,0,32), Position = UDim2.new(0,14,0, math.floor((cardH-32)/2)),
-            BackgroundColor3 = tc, BackgroundTransparency = 0.78,
-            BorderSizePixel = 0, ZIndex = 202, Parent = Toast,
+        -- ── Header strip: icon badge + title on the left, avatar + username top-right
+        local Header = New("Frame", {
+            Size = UDim2.new(1,0,0,NOTIF_HEADER_H), Position = UDim2.new(0,0,0,3),
+            BackgroundTransparency = 1, ZIndex = 202, Parent = Toast,
         })
-        Corner(16, IconCircle)
+
+        local IconCircle = New("Frame", {
+            Size = UDim2.new(0,24,0,24), Position = UDim2.new(0,10,0.5,-12),
+            BackgroundColor3 = tc, BackgroundTransparency = 0.76,
+            BorderSizePixel = 0, ZIndex = 203, Parent = Header,
+        })
+        Corner(12, IconCircle)
         local IconImg = New("ImageLabel", {
-            Size = UDim2.new(0,18,0,18), Position = UDim2.new(0,7,0,7),
+            Size = UDim2.new(0,14,0,14), Position = UDim2.new(0,5,0,5),
             BackgroundTransparency = 1, ImageColor3 = tc,
-            Visible = false, ZIndex = 203, Parent = IconCircle,
+            Visible = false, ZIndex = 204, Parent = IconCircle,
         })
         if ncfg.Icon then
             ApplyIcon(IconImg, ncfg.Icon, ncfg.IconSource or "Symbols")
@@ -620,23 +633,40 @@ function NebulaHub:CreateWindow(config)
             if defIcon then ApplyIcon(IconImg, defIcon, "Material") end
         end
 
-        local textLeft = 56
         New("TextLabel", {
             Text = ncfg.Title or "Notification",
-            Size = UDim2.new(1,-textLeft-12,0,18),
-            Position = UDim2.new(0,textLeft,0, ncfg.Message and 12 or math.floor((cardH-18)/2)),
+            Size = UDim2.new(1,-150,1,0), Position = UDim2.new(0,42,0,0),
             BackgroundTransparency = 1, TextColor3 = Theme.Text,
             Font = Theme.FontBold, TextSize = 12,
             TextXAlignment = Enum.TextXAlignment.Left,
-            ZIndex = 202, Parent = Toast,
+            TextTruncate = Enum.TextTruncate.AtEnd,
+            ZIndex = 203, Parent = Header,
         })
+
+        -- Player headshot + username, pinned top-right (mirrors the sidebar user card)
+        local NAvatar = New("ImageLabel", {
+            Size = UDim2.new(0,20,0,20), Position = UDim2.new(1,-86,0.5,-10),
+            BackgroundColor3 = Theme.Surface3, BorderSizePixel = 0,
+            Image = avatarUrl, ZIndex = 203, Parent = Header,
+        })
+        Corner(10, NAvatar)
+        Stroke(Theme.Border2, 1, NAvatar)
+        New("TextLabel", {
+            Text = displayName,
+            Size = UDim2.new(0,56,1,0), Position = UDim2.new(1,-62,0,0),
+            BackgroundTransparency = 1, TextColor3 = Theme.Dim,
+            Font = Theme.Font, TextSize = 9,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            TextTruncate = Enum.TextTruncate.AtEnd,
+            ZIndex = 203, Parent = Header,
+        })
+
         if ncfg.Message then
             New("TextLabel", {
                 Text = ncfg.Message,
-                Size = UDim2.new(1,-textLeft-12,0,28),
-                Position = UDim2.new(0,textLeft,0,32),
+                Size = UDim2.new(1,-26,0,32), Position = UDim2.new(0,14,0,NOTIF_HEADER_H+1),
                 BackgroundTransparency = 1, TextColor3 = Theme.Muted,
-                Font = Theme.Font, TextSize = 10,
+                Font = Theme.Font, TextSize = 10.5,
                 TextXAlignment = Enum.TextXAlignment.Left,
                 TextWrapped = true, ZIndex = 202, Parent = Toast,
             })
@@ -660,7 +690,7 @@ function NebulaHub:CreateWindow(config)
             local s = _notifStack[i]
             local targetPos = UDim2.new(1, _NOTIF_RIGHT - NOTIF_W, 1, bottomY - s.height)
             if i == #_notifStack then
-                Tween(s.frame, {Position = targetPos}, 0.3, Enum.EasingStyle.Back)
+                Tween(s.frame, {Position = targetPos}, 0.32, Enum.EasingStyle.Back)
             else
                 Tween(s.frame, {Position = targetPos}, 0.22)
             end
@@ -679,7 +709,7 @@ function NebulaHub:CreateWindow(config)
                 Tween(s.frame, {Position=UDim2.new(1,_NOTIF_RIGHT-NOTIF_W,1,by-s.height)}, 0.18)
                 by = by - s.height - _NOTIF_GAP
             end
-            Tween(Toast, {Position=UDim2.new(1,NOTIF_W+20,Toast.Position.Y.Scale,Toast.Position.Y.Offset)}, 0.2)
+            Tween(Toast, {Position=UDim2.new(1,NOTIF_W+24,Toast.Position.Y.Scale,Toast.Position.Y.Offset)}, 0.2)
             task.wait(0.22) Toast:Destroy()
         end
 
