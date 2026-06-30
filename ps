@@ -1,10 +1,18 @@
 --[[
-    NebulaHub UI Library — v3.1
+    NebulaHub UI Library — v3.2
     ─────────────────────────────────────────────────────────────────────────────
     Changes in this version:
-      • Hamburger toggle now sits in its own row ABOVE the game thumbnail / name
-      • Color picker reworked into an actual circular hue/saturation wheel
-        + a separate value (brightness) slider underneath
+      • FIXED: "attempt to call a nil value" on tab creation — ApplyIcon used
+        New()/Tween() before those locals existed yet (Lua locals are only
+        visible after their `local function` statement runs). Helpers are now
+        declared first.
+      • Icon system now uses the real Nebula Icon Library loader (Material,
+        Lucide, Phosphor, Phosphor-Filled, SF, Symbols, Symbols-Filled, Lab,
+        Fluency) instead of a built-in glyph table. Pass Icon = "star",
+        IconSource = "Lucide" and it resolves to the correct rbxassetid via
+        the icon module's :GetIcon(name, source) method.
+      • Hamburger toggle sits in its own row ABOVE the game thumbnail / name
+      • Color picker is a circular hue/saturation wheel + a value slider
     ─────────────────────────────────────────────────────────────────────────────
     Features:
       • Collapsible icon-only sidebar (hamburger toggles label visibility)
@@ -17,8 +25,7 @@
                   ColorPicker (wheel), Label, Paragraph, Separator
       • Dynamic inputs (SetValue / GetValue on everything)
       • Nested elements via AddGroup (collapsible card)
-      • Icon support via Nebula Icon Library (auto-loaded)
-      • All icons: Lucide, Material, Symbols, Phosphor, SF, Fluency, Lab, etc.
+      • Icon support via Nebula Icon Library (Material, Lucide, Phosphor, etc.)
     ─────────────────────────────────────────────────────────────────────────────
     local NebulaHub = loadstring(game:HttpGet("YOUR_URL"))()
     local Window = NebulaHub:CreateWindow({ Title = "My Hub" })
@@ -39,60 +46,95 @@ local HttpService        = game:GetService("HttpService")
 
 local LocalPlayer = Players.LocalPlayer
 
--- ─── Icon System ──────────────────────────────────────────────────────────────
--- The previous version depended on an external "Nebula Icon Library" loader
--- URL that doesn't actually exist, so every icon silently failed to render.
--- This version uses a small built-in glyph set — no network calls, no missing
--- asset ids, every icon renders every time. Pass a number instead of a name
--- (e.g. Icon = 6034509993) to use your own uploaded rbxassetid image instead.
-local CharIcons = {
-    home          = "▲",
-    eye           = "◉",
-    settings      = "⚙",
-    gear          = "⚙",
-    bell          = "●",
-    palette       = "◆",
-    droplet       = "◆",
-    sliders       = "≡",
-    key           = "♦",
-    trash         = "✗",
-    info          = "ℹ",
-    check_circle  = "✓",
-    check         = "✓",
-    warning       = "⚠",
-    error         = "✗",
-    sword         = "†",
-    star          = "★",
-    search        = "◎",
-    x             = "✕",
-    plus          = "+",
-    minus         = "−",
-    chevron_down  = "▾",
-    chevron_up    = "▴",
-    paintbrush    = "◆",
-}
-setmetatable(CharIcons, { __index = function() return "●" end }) -- unknown name -> dot, never blank
+-- ─── Helpers (MUST be declared before anything that calls them — Icon System,
+--     below, calls New()/Tween() while building icon instances) ──────────────
+local function Tween(obj, props, dur, style, dir)
+    TweenService:Create(obj,
+        TweenInfo.new(dur or 0.18, style or Enum.EasingStyle.Quart, dir or Enum.EasingDirection.Out),
+        props):Play()
+end
 
-local function ApplyIcon(holder, val, color, sz)
+local function New(cls, props)
+    local o = Instance.new(cls)
+    for k, v in pairs(props) do o[k] = v end
+    return o
+end
+
+local function Corner(r, parent)
+    return New("UICorner", { CornerRadius = UDim.new(0, r), Parent = parent })
+end
+local function Stroke(color, thick, parent)
+    return New("UIStroke", { Color = color, Thickness = thick or 1, Parent = parent })
+end
+local function Pad(l, r, t, b, parent)
+    return New("UIPadding", {
+        PaddingLeft   = UDim.new(0, l or 0),
+        PaddingRight  = UDim.new(0, r or 0),
+        PaddingTop    = UDim.new(0, t or 0),
+        PaddingBottom = UDim.new(0, b or 0),
+        Parent        = parent,
+    })
+end
+
+-- ─── Icon System ──────────────────────────────────────────────────────────────
+-- Uses the real Nebula Icon Library loader. Each icon set is lazy-loaded the
+-- first time it's actually requested (so CreateWindow doesn't pay the cost of
+-- downloading every icon pack up front), then cached. Pass a number instead
+-- of a name (e.g. Icon = 6034509993) to use your own uploaded rbxassetid
+-- image instead of a named icon.
+local IconLib = nil
+local _iconLibOk, _iconLibErr = pcall(function()
+    IconLib = loadstring(game:HttpGet("https://raw.nebulasoftworks.xyz/nebula-icon-library-loader"))()
+end)
+if not _iconLibOk then
+    warn("[NebulaHub] Failed to load Nebula Icon Library, icons will be blank: " .. tostring(_iconLibErr))
+end
+
+local _iconCache = {} -- "Source/name" -> assetId
+
+local function ResolveIconId(name, source)
+    source = source or "Symbols"
+    local cacheKey = source .. "/" .. tostring(name)
+    if _iconCache[cacheKey] ~= nil then
+        return _iconCache[cacheKey]
+    end
+    if not IconLib then return nil end
+
+    local ok, id = pcall(function()
+        return IconLib:GetIcon(name, source)
+    end)
+    if ok and id then
+        _iconCache[cacheKey] = id
+        return id
+    end
+    return nil
+end
+
+local function ApplyIcon(holder, val, source, sz)
     sz = sz or 14
     for _, ch in ipairs(holder:GetChildren()) do ch:Destroy() end
     if not val then holder.Visible = false return end
     holder.Visible = true
-    color = color or Color3.new(1,1,1)
+
+    local assetId
     if type(val) == "number" then
-        New("ImageLabel", {
-            Size = UDim2.new(1,0,1,0), BackgroundTransparency = 1,
-            Image = "rbxassetid://" .. tostring(val), ImageColor3 = color,
-            Parent = holder,
-        })
+        assetId = val
+    else
+        assetId = ResolveIconId(val, source)
+    end
+
+    if not assetId then
+        -- Icon failed to resolve (lib offline / bad name) — fail quietly,
+        -- don't render a broken image or block the rest of the UI.
+        holder.Visible = false
         return
     end
-    New("TextLabel", {
+
+    New("ImageLabel", {
         Size = UDim2.new(1,0,1,0), BackgroundTransparency = 1,
-        Text = CharIcons[tostring(val):lower()], TextColor3 = color,
-        Font = Enum.Font.GothamBold, TextSize = sz,
-        TextXAlignment = Enum.TextXAlignment.Center,
-        TextYAlignment = Enum.TextYAlignment.Center,
+        Image = "rbxassetid://" .. tostring(assetId),
+        ImageColor3 = Color3.new(1,1,1),
+        ScaleType = Enum.ScaleType.Fit,
         Parent = holder,
     })
 end
@@ -213,45 +255,12 @@ local function SetTheme(name)
     Theme.Font     = Enum.Font.GothamMedium
     Theme.FontBold = Enum.Font.GothamBold
     Theme.FontMono = Enum.Font.Code
-    pcall(function()
-        -- test access
-        local _ = Enum.Font.GothamMedium
-    end)
     -- Fire listeners
     for _, fn in ipairs(_themeListeners) do pcall(fn, Theme) end
 end
 SetTheme("Dark")
 
 local function OnThemeChanged(fn) table.insert(_themeListeners, fn) end
-
--- ─── Helpers ──────────────────────────────────────────────────────────────────
-local function Tween(obj, props, dur, style, dir)
-    TweenService:Create(obj,
-        TweenInfo.new(dur or 0.18, style or Enum.EasingStyle.Quart, dir or Enum.EasingDirection.Out),
-        props):Play()
-end
-
-local function New(cls, props)
-    local o = Instance.new(cls)
-    for k, v in pairs(props) do o[k] = v end
-    return o
-end
-
-local function Corner(r, parent)
-    return New("UICorner", { CornerRadius = UDim.new(0, r), Parent = parent })
-end
-local function Stroke(color, thick, parent)
-    return New("UIStroke", { Color = color, Thickness = thick or 1, Parent = parent })
-end
-local function Pad(l, r, t, b, parent)
-    return New("UIPadding", {
-        PaddingLeft   = UDim.new(0, l or 0),
-        PaddingRight  = UDim.new(0, r or 0),
-        PaddingTop    = UDim.new(0, t or 0),
-        PaddingBottom = UDim.new(0, b or 0),
-        Parent        = parent,
-    })
-end
 
 local function MakeDraggable(frame, handle)
     handle = handle or frame
@@ -1414,7 +1423,7 @@ function NebulaHub:CreateWindow(config)
             }
         end
 
-        -- ── AddColorPicker — now an actual circular hue/saturation WHEEL ──────
+        -- ── AddColorPicker — an actual circular hue/saturation WHEEL ──────
         -- Layout:
         --   • Circular wheel: angle = hue (0..360°), radius = saturation (0 center -> 1 edge)
         --   • Separate horizontal "Value" (brightness) bar underneath the wheel
