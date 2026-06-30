@@ -309,7 +309,7 @@ end
 function NebulaHub:CreateWindow(config)
     config = config or {}
     local Title     = config.Title    or "Nebula Hub"
-    local WinSize   = config.Size     or UDim2.new(0, 600, 0, 480)
+    local WinSize   = config.Size     or UDim2.new(0, 720, 0, 560)
     local WinPos    = config.Position or UDim2.new(0.5, -300, 0.5, -240)
     local StartTheme = config.Theme   or "Dark"
     SetTheme(StartTheme)
@@ -372,8 +372,9 @@ function NebulaHub:CreateWindow(config)
     --   [ Hamburger row : 56 -> 92 ]
     --   [ Divider : 88 ]
     --   [ Tab scroll : 96 -> ... ]
-    local LOGO_H     = 56   -- tight fit, no dead space below the name/subtitle
+    local LOGO_H     = 40   -- game thumbnail/name now live in the Info panel
     local HAM_ROW_H  = 36
+    local USERCARD_H = 84   -- avatar/name row + settings/info icon row
     local LOGO_TOP   = 0
     local HAM_TOP    = LOGO_TOP + LOGO_H
     local DIVIDER_Y  = HAM_TOP + HAM_ROW_H - 4
@@ -403,39 +404,22 @@ function NebulaHub:CreateWindow(config)
         BackgroundTransparency = 1,
         ZIndex = 3, Parent = Sidebar,
     })
-    -- Game thumbnail
-    local GameThumb = New("ImageLabel", {
-        Size = UDim2.new(0,32,0,32), Position = UDim2.new(0,10,0,11),
-        BackgroundColor3 = Theme.Surface3, BorderSizePixel = 0,
-        Image = gameThumb, ImageTransparency = 0.1,
-        ZIndex = 4, Parent = LogoFrame,
-    })
-    Corner(8, GameThumb)
-    Stroke(Theme.Border2, 1, GameThumb)
-    -- Logo dot accent (shown when collapsed)
+    -- Logo dot accent (always visible, even collapsed)
     local LogoDot = New("Frame", {
-        Size = UDim2.new(0,8,0,8), Position = UDim2.new(0,32,0,35),
+        Size = UDim2.new(0,8,0,8), Position = UDim2.new(0,16,0.5,-4),
         BackgroundColor3 = Theme.Accent, BorderSizePixel = 0,
         ZIndex = 5, Parent = LogoFrame,
     })
     Corner(4, LogoDot)
 
-    -- Title + game name labels (hidden when collapsed) — "Nebula Hub" is the
-    -- very first thing in the sidebar
+    -- Title label (hidden when collapsed). Game thumbnail/name and Job ID now
+    -- live in the Info panel (the small "i" icon under the avatar) instead of
+    -- crowding the sidebar header.
     local TitleLbl = New("TextLabel", {
-        Text = Title, Size = UDim2.new(1,-52,0,16),
-        Position = UDim2.new(0,48,0,9),
+        Text = Title, Size = UDim2.new(1,-40,1,0),
+        Position = UDim2.new(0,32,0,0),
         BackgroundTransparency = 1, TextColor3 = Theme.Text,
         Font = Theme.FontBold, TextSize = 13,
-        TextXAlignment = Enum.TextXAlignment.Left,
-        TextTruncate = Enum.TextTruncate.AtEnd,
-        Visible = false, ZIndex = 4, Parent = LogoFrame,
-    })
-    local GameLbl = New("TextLabel", {
-        Text = gameName, Size = UDim2.new(1,-52,0,11),
-        Position = UDim2.new(0,48,0,27),
-        BackgroundTransparency = 1, TextColor3 = Theme.Dim,
-        Font = Theme.Font, TextSize = 9,
         TextXAlignment = Enum.TextXAlignment.Left,
         TextTruncate = Enum.TextTruncate.AtEnd,
         Visible = false, ZIndex = 4, Parent = LogoFrame,
@@ -475,7 +459,7 @@ function NebulaHub:CreateWindow(config)
 
     -- Tab button scroll container
     local TabScroll = New("ScrollingFrame", {
-        Size = UDim2.new(1,0,1,-(TABS_TOP+56)),
+        Size = UDim2.new(1,0,1,-(TABS_TOP+USERCARD_H)),
         Position = UDim2.new(0,0,0,TABS_TOP),
         BackgroundTransparency = 1, BorderSizePixel = 0,
         ScrollBarThickness = 0,
@@ -491,8 +475,8 @@ function NebulaHub:CreateWindow(config)
 
     -- User card (bottom of sidebar)
     local UserCard = New("Frame", {
-        Size = UDim2.new(1,0,0,52),
-        Position = UDim2.new(0,0,1,-52),
+        Size = UDim2.new(1,0,0,USERCARD_H),
+        Position = UDim2.new(0,0,1,-USERCARD_H),
         BackgroundTransparency = 1,
         ZIndex = 3, Parent = Sidebar,
     })
@@ -525,6 +509,34 @@ function NebulaHub:CreateWindow(config)
         TextXAlignment = Enum.TextXAlignment.Left,
         Visible = false, ZIndex = 4, Parent = UserCard,
     })
+
+    -- ── Settings / Info icon row — sits right under the avatar, always
+    -- visible (icon-only) regardless of whether the sidebar is expanded ──────
+    local IconRow = New("Frame", {
+        Size = UDim2.new(1,0,0,28), Position = UDim2.new(0,0,0,48),
+        BackgroundTransparency = 1, ZIndex = 4, Parent = UserCard,
+    })
+    local function MakeSmallIconBtn(x, name, source)
+        local b = New("TextButton", {
+            Text = "", Size = UDim2.new(0,24,0,24),
+            Position = UDim2.new(0,x,0,2),
+            BackgroundColor3 = Theme.Surface2, BorderSizePixel = 0,
+            AutoButtonColor = false, ZIndex = 5, Parent = IconRow,
+        })
+        Corner(7, b)
+        Stroke(Theme.Border2, 1, b)
+        local img = New("ImageLabel", {
+            Size = UDim2.new(0,13,0,13), Position = UDim2.new(0.5,-6.5,0.5,-6.5),
+            BackgroundTransparency = 1, ImageColor3 = Theme.Muted,
+            ZIndex = 6, Parent = b,
+        })
+        ApplyIcon(img, name, source)
+        b.MouseEnter:Connect(function() Tween(b,{BackgroundColor3=Theme.Surface3},0.1) TintIcon(img, Theme.Text) end)
+        b.MouseLeave:Connect(function() Tween(b,{BackgroundColor3=Theme.Surface2},0.1) TintIcon(img, Theme.Muted) end)
+        return b
+    end
+    local GearBtn = MakeSmallIconBtn(12, "settings", "Lucide")
+    local InfoBtn  = MakeSmallIconBtn(42, "info", "Lucide")
 
     -- ── Content area ─────────────────────────────────────────────────────────
     local ContentArea = New("Frame", {
@@ -566,6 +578,25 @@ function NebulaHub:CreateWindow(config)
 
     MakeDraggable(Main, LogoFrame)
 
+    -- ── Edge drag handles — lets the window be dragged from any border, not
+    -- just the header. Thin transparent strips sit on the four edges, on top
+    -- of everything else, and reuse the same MakeDraggable behavior. ─────────
+    local EDGE_T = 6
+    local function MakeEdge(sx, sy, px, py)
+        local h = New("Frame", {
+            Size = UDim2.new(sx[1], sx[2], sy[1], sy[2]),
+            Position = UDim2.new(px[1], px[2], py[1], py[2]),
+            BackgroundTransparency = 1, BorderSizePixel = 0,
+            ZIndex = 50, Parent = Main,
+        })
+        MakeDraggable(Main, h)
+        return h
+    end
+    MakeEdge({1,0},{0,EDGE_T}, {0,0},{0,0})            -- top edge
+    MakeEdge({1,0},{0,EDGE_T}, {0,0},{1,-EDGE_T})       -- bottom edge
+    MakeEdge({0,EDGE_T},{1,0}, {0,0},{0,0})            -- left edge
+    MakeEdge({0,EDGE_T},{1,0}, {1,-EDGE_T},{0,0})       -- right edge
+
     -- ── Hamburger toggle ─────────────────────────────────────────────────────
     local _sidebarLabels = {}  -- { label, bar } pairs registered by CreateTab
 
@@ -582,7 +613,6 @@ function NebulaHub:CreateWindow(config)
             item.Visible = sideExpanded
         end
         TitleLbl.Visible     = sideExpanded
-        GameLbl.Visible      = sideExpanded
         UserDisplayLbl.Visible = sideExpanded
         UserNameLbl.Visible    = sideExpanded
     end)
@@ -642,7 +672,7 @@ function NebulaHub:CreateWindow(config)
             ClipsDescendants = true,
             Parent = Gui,
         })
-        Corner(14, Toast)
+        Corner(16, Toast)
         Stroke(Theme.Border, 1, Toast)
 
         -- Soft colored glow behind the card (same asset as the main window glow)
@@ -661,7 +691,9 @@ function NebulaHub:CreateWindow(config)
             ZIndex = 201, Parent = Toast,
         })
 
-        -- ── Header strip: icon badge + title on the left, avatar + username top-right
+        -- ── Header strip: icon badge + title only — the player's headshot
+        -- and username now live in a small pill that floats just above the
+        -- toast (built below), instead of crowding the header.
         local Header = New("Frame", {
             Size = UDim2.new(1,0,0,NOTIF_HEADER_H), Position = UDim2.new(0,0,0,3),
             BackgroundTransparency = 1, ZIndex = 202, Parent = Toast,
@@ -691,27 +723,9 @@ function NebulaHub:CreateWindow(config)
 
         New("TextLabel", {
             Text = ncfg.Title or "Notification",
-            Size = UDim2.new(1,-150,1,0), Position = UDim2.new(0,42,0,0),
+            Size = UDim2.new(1,-54,1,0), Position = UDim2.new(0,42,0,0),
             BackgroundTransparency = 1, TextColor3 = Theme.Text,
             Font = Theme.FontBold, TextSize = 12,
-            TextXAlignment = Enum.TextXAlignment.Left,
-            TextTruncate = Enum.TextTruncate.AtEnd,
-            ZIndex = 203, Parent = Header,
-        })
-
-        -- Player headshot + username, pinned top-right (mirrors the sidebar user card)
-        local NAvatar = New("ImageLabel", {
-            Size = UDim2.new(0,20,0,20), Position = UDim2.new(1,-86,0.5,-10),
-            BackgroundColor3 = Theme.Surface3, BorderSizePixel = 0,
-            Image = avatarUrl, ZIndex = 203, Parent = Header,
-        })
-        Corner(10, NAvatar)
-        Stroke(Theme.Border2, 1, NAvatar)
-        New("TextLabel", {
-            Text = displayName,
-            Size = UDim2.new(0,56,1,0), Position = UDim2.new(1,-62,0,0),
-            BackgroundTransparency = 1, TextColor3 = Theme.Dim,
-            Font = Theme.Font, TextSize = 9,
             TextXAlignment = Enum.TextXAlignment.Left,
             TextTruncate = Enum.TextTruncate.AtEnd,
             ZIndex = 203, Parent = Header,
@@ -738,17 +752,54 @@ function NebulaHub:CreateWindow(config)
             BorderSizePixel = 0, ZIndex = 204, Parent = ProgTrack,
         })
 
-        local slot = {frame=Toast, height=cardH}
+        -- ── Floating pill: player headshot + username, sitting right above
+        -- the toast like a little nameplate (sibling of Toast so it isn't
+        -- clipped, but it moves and fades in lockstep with it).
+        local PILL_W, PILL_H, PILL_GAP = 112, 26, 6
+        local Pill = New("Frame", {
+            Size = UDim2.new(0, PILL_W, 0, PILL_H),
+            AnchorPoint = Vector2.new(0,1),
+            Position = UDim2.new(1, NOTIF_W+24, 1, -cardH-PILL_H-PILL_GAP),
+            BackgroundColor3 = Theme.Surface2,
+            BackgroundTransparency = 0.04,
+            BorderSizePixel = 0, ZIndex = 200, Parent = Gui,
+        })
+        Corner(13, Pill)
+        Stroke(Theme.Border, 1, Pill)
+        local PillAvatar = New("ImageLabel", {
+            Size = UDim2.new(0,18,0,18), Position = UDim2.new(0,5,0.5,-9),
+            BackgroundColor3 = Theme.Surface3, BorderSizePixel = 0,
+            Image = avatarUrl, ZIndex = 201, Parent = Pill,
+        })
+        Corner(9, PillAvatar)
+        Stroke(Theme.Border2, 1, PillAvatar)
+        New("TextLabel", {
+            Text = displayName,
+            Size = UDim2.new(1,-30,1,0), Position = UDim2.new(0,28,0,0),
+            BackgroundTransparency = 1, TextColor3 = Theme.Muted,
+            Font = Theme.Font, TextSize = 10,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            TextTruncate = Enum.TextTruncate.AtEnd,
+            ZIndex = 201, Parent = Pill,
+        })
+
+        local slot = {frame=Toast, pill=Pill, height=cardH}
         table.insert(_notifStack, slot)
 
         local bottomY = -14
         for i = #_notifStack, 1, -1 do
             local s = _notifStack[i]
             local targetPos = UDim2.new(1, _NOTIF_RIGHT - NOTIF_W, 1, bottomY - s.height)
+            local pillTargetPos = UDim2.new(
+                1, _NOTIF_RIGHT - PILL_W - 4,
+                1, bottomY - s.height - s.height - PILL_GAP
+            )
             if i == #_notifStack then
                 Tween(s.frame, {Position = targetPos}, 0.32, Enum.EasingStyle.Back)
+                Tween(s.pill,  {Position = pillTargetPos}, 0.32, Enum.EasingStyle.Back)
             else
                 Tween(s.frame, {Position = targetPos}, 0.22)
+                Tween(s.pill,  {Position = pillTargetPos}, 0.22)
             end
             bottomY = bottomY - s.height - _NOTIF_GAP
         end
@@ -762,11 +813,14 @@ function NebulaHub:CreateWindow(config)
             local by = -14
             for i = #_notifStack, 1, -1 do
                 local s = _notifStack[i]
+                local pillPos = UDim2.new(1, _NOTIF_RIGHT-PILL_W-4, 1, by-s.height-s.height-PILL_GAP)
                 Tween(s.frame, {Position=UDim2.new(1,_NOTIF_RIGHT-NOTIF_W,1,by-s.height)}, 0.18)
+                Tween(s.pill,  {Position=pillPos}, 0.18)
                 by = by - s.height - _NOTIF_GAP
             end
             Tween(Toast, {Position=UDim2.new(1,NOTIF_W+24,Toast.Position.Y.Scale,Toast.Position.Y.Offset)}, 0.2)
-            task.wait(0.22) Toast:Destroy()
+            Tween(Pill,  {Position=UDim2.new(1,NOTIF_W+24,Pill.Position.Y.Scale,Pill.Position.Y.Offset)}, 0.2)
+            task.wait(0.22) Toast:Destroy() Pill:Destroy()
         end
 
         Toast.InputBegan:Connect(function(i)
@@ -799,6 +853,230 @@ function NebulaHub:CreateWindow(config)
     function Window:Notify(ncfg)
         FireNotif(ncfg)
     end
+
+    -- ── Settings panel ──────────────────────────────────────────────────────
+    -- Opens above the gear icon. Lets the user pick a theme (live, working)
+    -- and set the keybind that toggles the whole UI on/off (also live).
+    local PANEL_W = 240
+    local uiVisible = true
+    local _toggleUIKey = Enum.KeyCode.RightControl
+
+    local SettingsPanel = New("Frame", {
+        Size = UDim2.new(0, PANEL_W, 0, 0),
+        AutomaticSize = Enum.AutomaticSize.Y,
+        Position = UDim2.new(0, 8, 1, -(USERCARD_H+12)),
+        AnchorPoint = Vector2.new(0,1),
+        BackgroundColor3 = Theme.Surface2,
+        BorderSizePixel = 0, ClipsDescendants = true,
+        Visible = false, ZIndex = 60, Parent = Main,
+    })
+    Corner(12, SettingsPanel)
+    local settingsStroke = Stroke(Theme.Border, 1, SettingsPanel)
+    Pad(12,12,12,12, SettingsPanel)
+    New("UIListLayout", {
+        Padding = UDim.new(0,8), FillDirection = Enum.FillDirection.Vertical,
+        SortOrder = Enum.SortOrder.LayoutOrder, Parent = SettingsPanel,
+    })
+    New("TextLabel", {
+        Text = "SETTINGS", Size = UDim2.new(1,0,0,14),
+        BackgroundTransparency = 1, TextColor3 = Theme.Dim,
+        Font = Theme.FontBold, TextSize = 10,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        LayoutOrder = 1, Parent = SettingsPanel,
+    })
+    New("TextLabel", {
+        Text = "Theme", Size = UDim2.new(1,0,0,12),
+        BackgroundTransparency = 1, TextColor3 = Theme.Muted,
+        Font = Theme.Font, TextSize = 10,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        LayoutOrder = 2, Parent = SettingsPanel,
+    })
+    local ThemeSwatchRow = New("Frame", {
+        Size = UDim2.new(1,0,0,26), BackgroundTransparency = 1,
+        LayoutOrder = 3, Parent = SettingsPanel,
+    })
+    New("UIListLayout", {
+        Padding = UDim.new(0,6), FillDirection = Enum.FillDirection.Horizontal,
+        SortOrder = Enum.SortOrder.LayoutOrder, Parent = ThemeSwatchRow,
+    })
+    local _themeSwatchRings = {}
+    for _, themeName in ipairs({"Dark","Midnight","Nebula","Rose","Forest"}) do
+        local sw = New("TextButton", {
+            Text = "", Size = UDim2.new(0,26,0,26),
+            BackgroundColor3 = Themes[themeName].Accent,
+            BorderSizePixel = 0, AutoButtonColor = false,
+            Parent = ThemeSwatchRow,
+        })
+        Corner(13, sw)
+        local ring = Stroke(themeName == StartTheme and Color3.new(1,1,1) or Theme.Border, themeName == StartTheme and 2 or 1, sw)
+        _themeSwatchRings[themeName] = ring
+        sw.MouseButton1Click:Connect(function()
+            Window:SetTheme(themeName)
+            for tn, r in pairs(_themeSwatchRings) do
+                r.Color = (tn == themeName) and Color3.new(1,1,1) or Theme.Border
+                r.Thickness = (tn == themeName) and 2 or 1
+            end
+        end)
+    end
+
+    New("Frame", {
+        Size = UDim2.new(1,0,0,1), BackgroundColor3 = Theme.Border,
+        BorderSizePixel = 0, LayoutOrder = 4, Parent = SettingsPanel,
+    })
+
+    New("TextLabel", {
+        Text = "Toggle UI Keybind", Size = UDim2.new(1,0,0,12),
+        BackgroundTransparency = 1, TextColor3 = Theme.Muted,
+        Font = Theme.Font, TextSize = 10,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        LayoutOrder = 5, Parent = SettingsPanel,
+    })
+    local KeybindRow = New("Frame", {
+        Size = UDim2.new(1,0,0,30), BackgroundColor3 = Theme.Surface,
+        BorderSizePixel = 0, LayoutOrder = 6, Parent = SettingsPanel,
+    })
+    Corner(7, KeybindRow) Stroke(Theme.Border, 1, KeybindRow)
+    local _listeningForToggle = false
+    local ToggleKeyBtn = New("TextButton", {
+        Text = _toggleUIKey.Name,
+        Size = UDim2.new(1,-12,1,-6), Position = UDim2.new(0,6,0,3),
+        BackgroundColor3 = Theme.Surface3, BorderSizePixel = 0,
+        TextColor3 = Theme.Accent, Font = Theme.FontMono, TextSize = 11,
+        AutoButtonColor = false, Parent = KeybindRow,
+    })
+    Corner(5, ToggleKeyBtn)
+    ToggleKeyBtn.MouseButton1Click:Connect(function()
+        if _listeningForToggle then return end
+        _listeningForToggle = true
+        ToggleKeyBtn.Text = "..."
+        Tween(ToggleKeyBtn, {BackgroundColor3=Theme.Accent, TextColor3=Color3.new(1,1,1)}, 0.1)
+    end)
+
+    local SettingsCloseBtn = New("TextButton", {
+        Text = "×", Size = UDim2.new(0,18,0,18),
+        Position = UDim2.new(1,-24,0,-30),
+        BackgroundTransparency = 1, TextColor3 = Theme.Muted,
+        Font = Theme.FontBold, TextSize = 14,
+        ZIndex = 61, Parent = SettingsPanel,
+    })
+
+    -- ── Info panel ───────────────────────────────────────────────────────────
+    -- Game thumbnail/name, place id, job id, and player info now live here
+    -- instead of crowding the sidebar header.
+    local InfoPanel = New("Frame", {
+        Size = UDim2.new(0, PANEL_W, 0, 0),
+        AutomaticSize = Enum.AutomaticSize.Y,
+        Position = UDim2.new(0, 8, 1, -(USERCARD_H+12)),
+        AnchorPoint = Vector2.new(0,1),
+        BackgroundColor3 = Theme.Surface2,
+        BorderSizePixel = 0, ClipsDescendants = true,
+        Visible = false, ZIndex = 60, Parent = Main,
+    })
+    Corner(12, InfoPanel)
+    local infoStroke = Stroke(Theme.Border, 1, InfoPanel)
+    Pad(12,12,12,12, InfoPanel)
+    New("UIListLayout", {
+        Padding = UDim.new(0,6), FillDirection = Enum.FillDirection.Vertical,
+        SortOrder = Enum.SortOrder.LayoutOrder, Parent = InfoPanel,
+    })
+
+    local InfoHeaderRow = New("Frame", {
+        Size = UDim2.new(1,0,0,44), BackgroundTransparency = 1,
+        LayoutOrder = 1, Parent = InfoPanel,
+    })
+    local InfoThumb = New("ImageLabel", {
+        Size = UDim2.new(0,44,0,44), BackgroundColor3 = Theme.Surface3,
+        BorderSizePixel = 0, Image = gameThumb, Parent = InfoHeaderRow,
+    })
+    Corner(9, InfoThumb) Stroke(Theme.Border2, 1, InfoThumb)
+    New("TextLabel", {
+        Text = gameName, Size = UDim2.new(1,-54,0,16), Position = UDim2.new(0,52,0,2),
+        BackgroundTransparency = 1, TextColor3 = Theme.Text,
+        Font = Theme.FontBold, TextSize = 12,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        TextTruncate = Enum.TextTruncate.AtEnd, Parent = InfoHeaderRow,
+    })
+    New("TextLabel", {
+        Text = "Place ID: "..tostring(placeId), Size = UDim2.new(1,-54,0,12), Position = UDim2.new(0,52,0,20),
+        BackgroundTransparency = 1, TextColor3 = Theme.Dim,
+        Font = Theme.FontMono, TextSize = 9,
+        TextXAlignment = Enum.TextXAlignment.Left, Parent = InfoHeaderRow,
+    })
+
+    New("Frame", {
+        Size = UDim2.new(1,0,0,1), BackgroundColor3 = Theme.Border,
+        BorderSizePixel = 0, LayoutOrder = 2, Parent = InfoPanel,
+    })
+
+    local function InfoRow(label, value, order)
+        local R = New("Frame", { Size = UDim2.new(1,0,0,16), BackgroundTransparency = 1, LayoutOrder = order, Parent = InfoPanel })
+        New("TextLabel", {
+            Text = label, Size = UDim2.new(0.42,0,1,0),
+            BackgroundTransparency = 1, TextColor3 = Theme.Muted,
+            Font = Theme.Font, TextSize = 10,
+            TextXAlignment = Enum.TextXAlignment.Left, Parent = R,
+        })
+        New("TextLabel", {
+            Text = value, Size = UDim2.new(0.58,0,1,0), Position = UDim2.new(0.42,0,0,0),
+            BackgroundTransparency = 1, TextColor3 = Theme.Text,
+            Font = Theme.FontMono, TextSize = 10,
+            TextXAlignment = Enum.TextXAlignment.Right,
+            TextTruncate = Enum.TextTruncate.AtEnd, Parent = R,
+        })
+    end
+    InfoRow("Job ID",  game.JobId ~= "" and game.JobId or "Studio", 3)
+    InfoRow("Player",  displayName.." (@"..username..")", 4)
+    InfoRow("User ID", tostring(userId), 5)
+
+    local InfoCloseBtn = New("TextButton", {
+        Text = "×", Size = UDim2.new(0,18,0,18),
+        Position = UDim2.new(1,-24,0,-30),
+        BackgroundTransparency = 1, TextColor3 = Theme.Muted,
+        Font = Theme.FontBold, TextSize = 14,
+        ZIndex = 61, Parent = InfoPanel,
+    })
+
+    -- ── Wiring: gear / info icons toggle their panels (mutually exclusive) ──
+    local function CloseSettings() SettingsPanel.Visible = false end
+    local function CloseInfo() InfoPanel.Visible = false end
+
+    GearBtn.MouseButton1Click:Connect(function()
+        local opening = not SettingsPanel.Visible
+        CloseInfo()
+        SettingsPanel.Visible = opening
+    end)
+    InfoBtn.MouseButton1Click:Connect(function()
+        local opening = not InfoPanel.Visible
+        CloseSettings()
+        InfoPanel.Visible = opening
+    end)
+    SettingsCloseBtn.MouseButton1Click:Connect(CloseSettings)
+    InfoCloseBtn.MouseButton1Click:Connect(CloseInfo)
+
+    -- Global input: capture the new toggle-UI keybind while listening, and
+    -- fire the actual UI-visibility toggle once a key is bound.
+    UserInputService.InputBegan:Connect(function(input, gp)
+        if _listeningForToggle then
+            if input.UserInputType == Enum.UserInputType.Keyboard then
+                _listeningForToggle = false
+                _toggleUIKey = input.KeyCode
+                ToggleKeyBtn.Text = _toggleUIKey.Name
+                Tween(ToggleKeyBtn, {BackgroundColor3=Theme.Surface3, TextColor3=Theme.Accent}, 0.1)
+            end
+            return
+        end
+        if gp then return end
+        if input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode == _toggleUIKey then
+            uiVisible = not uiVisible
+            Main.Visible = uiVisible
+        end
+    end)
+
+    OnThemeChanged(function(t)
+        settingsStroke.Color = t.Border
+        infoStroke.Color = t.Border
+        InfoThumb.BackgroundColor3 = t.Surface3
+    end)
 
     -- ── CreateTab ────────────────────────────────────────────────────────────
     function Window:CreateTab(name, tcfg)
