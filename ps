@@ -304,11 +304,12 @@ function NebulaHub:CreateWindow(config)
     local SIDEBAR_W   = 210
     local LOGO_H      = 64
     local TABS_TOP    = LOGO_H + 6
-    local ICONBAR_H   = 40
     local USERCARD_H  = 56
     local BOTTOM_GAP  = 8
     local BOTTOM_PAD  = 10
-    local BOTTOM_REGION = ICONBAR_H + BOTTOM_GAP + USERCARD_H + BOTTOM_GAP + BOTTOM_PAD
+    local ROW_H       = 34
+    local ROW_GAP     = 4
+    local PIN_TOP_PAD = 9
 
     local Sidebar = New("Frame", {
         Name = "Sidebar",
@@ -357,7 +358,6 @@ function NebulaHub:CreateWindow(config)
     })
 
     local TabScroll = New("ScrollingFrame", {
-        Size = UDim2.new(1,0,1,-(TABS_TOP+BOTTOM_REGION)),
         Position = UDim2.new(0,0,0,TABS_TOP),
         BackgroundTransparency = 1, BorderSizePixel = 0,
         ScrollBarThickness = 0,
@@ -371,39 +371,25 @@ function NebulaHub:CreateWindow(config)
     })
     Pad(10,10,4,4, TabScroll)
 
-    local IconBar = New("Frame", {
-        Size = UDim2.new(1,-16,0,ICONBAR_H),
-        Position = UDim2.new(0,8,1,-(USERCARD_H+BOTTOM_GAP+ICONBAR_H+BOTTOM_PAD)),
-        BackgroundColor3 = Theme.Surface2, BorderSizePixel = 0,
-        ZIndex = 4, Parent = Sidebar,
+    local PinnedSection = New("Frame", {
+        Size = UDim2.new(1,-16,0,0),
+        BackgroundTransparency = 1,
+        ZIndex = 3, Parent = Sidebar,
     })
-    Corner(12, IconBar)
-    local iconBarStroke = Stroke(Theme.Border, 1, IconBar)
-
-    local function IconBarBtn(idx, total, name, source, callback)
-        local b = New("TextButton", {
-            Text = "", Size = UDim2.new(1/total,0,1,0), Position = UDim2.new((idx-1)/total,0,0,0),
-            BackgroundTransparency = 1, AutoButtonColor = false,
-            ZIndex = 5, Parent = IconBar,
-        })
-        local img = New("ImageLabel", {
-            Size = UDim2.new(0,15,0,15), Position = UDim2.new(0.5,-7,0.5,-7),
-            BackgroundTransparency = 1, ImageColor3 = Theme.Muted,
-            ZIndex = 6, Parent = b,
-        })
-        ApplyIcon(img, name, source)
-        b.MouseEnter:Connect(function() TintIcon(img, Theme.Text) end)
-        b.MouseLeave:Connect(function() TintIcon(img, Theme.Muted) end)
-        if callback then b.MouseButton1Click:Connect(callback) end
-        if idx < total then
-            New("Frame", {
-                Size = UDim2.new(0,1,0,18), Position = UDim2.new(idx/total,0,0.5,-9),
-                BackgroundColor3 = Theme.Border, BorderSizePixel = 0,
-                ZIndex = 5, Parent = IconBar,
-            })
-        end
-        return b
-    end
+    local PinDivider = New("Frame", {
+        Size = UDim2.new(1,0,0,1), Position = UDim2.new(0,0,0,0),
+        BackgroundColor3 = Theme.Border, BorderSizePixel = 0,
+        ZIndex = 3, Parent = PinnedSection,
+    })
+    local PinRows = New("Frame", {
+        Size = UDim2.new(1,0,0,0), Position = UDim2.new(0,0,0,PIN_TOP_PAD),
+        BackgroundTransparency = 1,
+        ZIndex = 3, Parent = PinnedSection,
+    })
+    New("UIListLayout", {
+        Padding = UDim.new(0,ROW_GAP), FillDirection = Enum.FillDirection.Vertical,
+        SortOrder = Enum.SortOrder.LayoutOrder, Parent = PinRows,
+    })
 
     local UserCard = New("Frame", {
         Size = UDim2.new(1,-16,0,USERCARD_H),
@@ -448,6 +434,21 @@ function NebulaHub:CreateWindow(config)
         ZIndex = 5, Parent = UserCard,
     })
 
+    local function RecalcSidebar()
+        local n = #PinRows:GetChildren() - 1
+        if n < 0 then n = 0 end
+        local pinnedH = 0
+        if n > 0 then
+            pinnedH = PIN_TOP_PAD + n*ROW_H + (n-1)*ROW_GAP
+        end
+        local sectionH = n > 0 and (1 + pinnedH) or 0
+        PinnedSection.Size = UDim2.new(1,-16,0,sectionH)
+        PinnedSection.Position = UDim2.new(0,8,1,-(USERCARD_H+BOTTOM_PAD+(sectionH>0 and (sectionH+BOTTOM_GAP) or 0)))
+        PinDivider.Visible = n > 0
+        TabScroll.Size = UDim2.new(1,0,1,-(TABS_TOP+(sectionH>0 and (sectionH+BOTTOM_GAP) or 0)+USERCARD_H+BOTTOM_GAP+BOTTOM_PAD))
+    end
+    RecalcSidebar()
+
     local ContentArea = New("Frame", {
         Name = "ContentArea",
         Size = UDim2.new(1, -(SIDEBAR_W+8), 1, -8),
@@ -486,6 +487,12 @@ function NebulaHub:CreateWindow(config)
         Sidebar.Visible = not _minimised
     end)
 
+    local TopDrag = New("Frame", {
+        Size = UDim2.new(1,0,0,40), Position = UDim2.new(0,0,0,0),
+        BackgroundTransparency = 1, BorderSizePixel = 0,
+        ZIndex = 2, Parent = Main,
+    })
+    MakeDraggable(Main, TopDrag)
     MakeDraggable(Main, LogoFrame)
 
     local EDGE_T = 6
@@ -499,7 +506,6 @@ function NebulaHub:CreateWindow(config)
         MakeDraggable(Main, h)
         return h
     end
-    MakeEdge({1,0},{0,EDGE_T}, {0,0},{0,0})
     MakeEdge({1,0},{0,EDGE_T}, {0,0},{1,-EDGE_T})
     MakeEdge({0,EDGE_T},{1,0}, {0,0},{0,0})
     MakeEdge({0,EDGE_T},{1,0}, {1,-EDGE_T},{0,0})
@@ -517,20 +523,18 @@ function NebulaHub:CreateWindow(config)
         end
         mainStroke.Color = t.Border
         sideStroke.Color = t.Border
-        iconBarStroke.Color = t.Border
         userCardStroke.Color = t.Border
+        PinDivider.BackgroundColor3 = t.Border
         Glow.ImageColor3 = t.Accent
         LogoDot.BackgroundColor3 = t.Accent
         Sidebar.BackgroundColor3 = t.Surface
         UserCard.BackgroundColor3 = t.Surface2
-        IconBar.BackgroundColor3 = t.Surface2
         Main.BackgroundColor3 = t.BG
         TitleLbl.TextColor3 = t.Text
     end)
 
     local _notifStack = {}
-    local NOTIF_W = 300
-    local NOTIF_HEADER_H = 34
+    local NOTIF_W = 320
 
     local function FireNotif(ncfg)
         ncfg = ncfg or {}
@@ -542,7 +546,7 @@ function NebulaHub:CreateWindow(config)
         }
         local tc = typeColors[ncfg.Type or "info"] or Theme.Blue
         local dur = ncfg.Duration or 4
-        local cardH = NOTIF_HEADER_H + (ncfg.Message and 42 or 18)
+        local cardH = (ncfg.Message and 62 or 40)
 
         local Toast = New("Frame", {
             Size = UDim2.new(0, NOTIF_W, 0, cardH),
@@ -557,26 +561,23 @@ function NebulaHub:CreateWindow(config)
         Corner(14, Toast)
         Stroke(Theme.Border, 1, Toast)
 
-        New("Frame", {
-            Size = UDim2.new(1,0,0,3),
+        local AccentBar = New("Frame", {
+            Size = UDim2.new(0,3,1,-10), Position = UDim2.new(0,5,0,5),
             BackgroundColor3 = tc, BorderSizePixel = 0,
             ZIndex = 201, Parent = Toast,
         })
+        Corner(2, AccentBar)
 
-        local Header = New("Frame", {
-            Size = UDim2.new(1,0,0,NOTIF_HEADER_H), Position = UDim2.new(0,0,0,3),
-            BackgroundTransparency = 1, ZIndex = 202, Parent = Toast,
-        })
         local IconCircle = New("Frame", {
-            Size = UDim2.new(0,22,0,22), Position = UDim2.new(0,10,0.5,-11),
-            BackgroundColor3 = tc, BackgroundTransparency = 0.76,
-            BorderSizePixel = 0, ZIndex = 203, Parent = Header,
+            Size = UDim2.new(0,26,0,26), Position = UDim2.new(0,16,0,13),
+            BackgroundColor3 = tc, BackgroundTransparency = 0.78,
+            BorderSizePixel = 0, ZIndex = 201, Parent = Toast,
         })
-        Corner(11, IconCircle)
+        Corner(13, IconCircle)
         local IconImg = New("ImageLabel", {
-            Size = UDim2.new(0,12,0,12), Position = UDim2.new(0,5,0,5),
+            Size = UDim2.new(0,14,0,14), Position = UDim2.new(0,6,0,6),
             BackgroundTransparency = 1, ImageColor3 = tc,
-            ZIndex = 204, Parent = IconCircle,
+            ZIndex = 202, Parent = IconCircle,
         })
         if ncfg.Icon then
             ApplyIcon(IconImg, ncfg.Icon, ncfg.IconSource or "Phosphor")
@@ -587,34 +588,44 @@ function NebulaHub:CreateWindow(config)
 
         New("TextLabel", {
             Text = ncfg.Title or "Notification",
-            Size = UDim2.new(1,-50,1,0), Position = UDim2.new(0,40,0,0),
+            Size = UDim2.new(1,-94,0,18), Position = UDim2.new(0,54,0,ncfg.Message and 11 or 11),
             BackgroundTransparency = 1, TextColor3 = Theme.Text,
-            Font = Theme.FontBold, TextSize = 12,
+            Font = Theme.FontBold, TextSize = 13,
             TextXAlignment = Enum.TextXAlignment.Left,
             TextTruncate = Enum.TextTruncate.AtEnd,
-            ZIndex = 203, Parent = Header,
+            ZIndex = 201, Parent = Toast,
         })
 
         if ncfg.Message then
             New("TextLabel", {
                 Text = ncfg.Message,
-                Size = UDim2.new(1,-24,0,30), Position = UDim2.new(0,12,0,NOTIF_HEADER_H+1),
+                Size = UDim2.new(1,-72,0,30), Position = UDim2.new(0,54,0,30),
                 BackgroundTransparency = 1, TextColor3 = Theme.Muted,
-                Font = Theme.Font, TextSize = 10.5,
+                Font = Theme.Font, TextSize = 11,
                 TextXAlignment = Enum.TextXAlignment.Left,
-                TextWrapped = true, ZIndex = 202, Parent = Toast,
+                TextWrapped = true, ZIndex = 201, Parent = Toast,
             })
         end
 
-        local ProgTrack = New("Frame", {
-            Size = UDim2.new(1,0,0,3), Position = UDim2.new(0,0,1,-3),
-            BackgroundColor3 = Theme.Surface3, BorderSizePixel = 0,
-            ZIndex = 203, Parent = Toast,
+        local CloseX = New("TextButton", {
+            Text = "x", Size = UDim2.new(0,20,0,20),
+            Position = UDim2.new(1,-26,0,10),
+            BackgroundTransparency = 1, TextColor3 = Theme.Dim,
+            Font = Theme.FontBold, TextSize = 12,
+            ZIndex = 202, Parent = Toast,
         })
+
+        local ProgTrack = New("Frame", {
+            Size = UDim2.new(1,-10,0,3), Position = UDim2.new(0,5,1,-6),
+            BackgroundColor3 = Theme.Surface3, BorderSizePixel = 0,
+            ZIndex = 201, Parent = Toast,
+        })
+        Corner(2, ProgTrack)
         local ProgFill = New("Frame", {
             Size = UDim2.new(1,0,1,0), BackgroundColor3 = tc,
-            BorderSizePixel = 0, ZIndex = 204, Parent = ProgTrack,
+            BorderSizePixel = 0, ZIndex = 202, Parent = ProgTrack,
         })
+        Corner(2, ProgFill)
 
         local slot = {frame=Toast, height=cardH}
         table.insert(_notifStack, slot)
@@ -628,12 +639,15 @@ function NebulaHub:CreateWindow(config)
             else
                 Tween(s.frame, {Position = targetPos}, 0.2)
             end
-            bottomY = bottomY - s.height - 8
+            bottomY = bottomY - s.height - 10
         end
 
         Tween(ProgFill, {Size = UDim2.new(0,0,1,0)}, dur, Enum.EasingStyle.Linear)
 
+        local _dismissed = false
         local function Dismiss()
+            if _dismissed then return end
+            _dismissed = true
             for i, s in ipairs(_notifStack) do
                 if s == slot then table.remove(_notifStack, i) break end
             end
@@ -641,15 +655,13 @@ function NebulaHub:CreateWindow(config)
             for i = #_notifStack, 1, -1 do
                 local s = _notifStack[i]
                 Tween(s.frame, {Position=UDim2.new(1,-14-NOTIF_W,1,by-s.height)}, 0.18)
-                by = by - s.height - 8
+                by = by - s.height - 10
             end
             Tween(Toast, {Position=UDim2.new(1,NOTIF_W+24,Toast.Position.Y.Scale,Toast.Position.Y.Offset)}, 0.2)
             task.wait(0.22) Toast:Destroy()
         end
 
-        Toast.InputBegan:Connect(function(i)
-            if i.UserInputType == Enum.UserInputType.MouseButton1 then Dismiss() end
-        end)
+        CloseX.MouseButton1Click:Connect(Dismiss)
         task.delay(dur, Dismiss)
     end
 
@@ -659,6 +671,7 @@ function NebulaHub:CreateWindow(config)
         _keybinds  = {},
         _gui       = Gui,
         Flags      = {},
+        _pinnedSeq = 0,
     }
 
     UserInputService.InputBegan:Connect(function(input, gp)
@@ -743,120 +756,12 @@ function NebulaHub:CreateWindow(config)
         pcall(delfile, GetConfigFolder().."/"..name..".json")
     end
 
-    local PANEL_W = 220
-    local uiVisible = true
     local _toggleUIKey = Enum.KeyCode.RightControl
     local _listeningForToggle = false
-
-    local SettingsPanel = New("Frame", {
-        Size = UDim2.new(0, PANEL_W, 0, 0),
-        AutomaticSize = Enum.AutomaticSize.Y,
-        Position = UDim2.new(0, 8, 1, -(USERCARD_H+BOTTOM_GAP+ICONBAR_H+BOTTOM_GAP+BOTTOM_PAD)),
-        AnchorPoint = Vector2.new(0,1),
-        BackgroundColor3 = Theme.Surface2,
-        BorderSizePixel = 0, ClipsDescendants = true,
-        Visible = false, ZIndex = 60, Parent = Main,
-    })
-    Corner(12, SettingsPanel)
-    local settingsStroke = Stroke(Theme.Border, 1, SettingsPanel)
-    Pad(12,12,12,12, SettingsPanel)
-    New("UIListLayout", {
-        Padding = UDim.new(0,8), FillDirection = Enum.FillDirection.Vertical,
-        SortOrder = Enum.SortOrder.LayoutOrder, Parent = SettingsPanel,
-    })
-    New("TextLabel", {
-        Text = "SETTINGS", Size = UDim2.new(1,0,0,14),
-        BackgroundTransparency = 1, TextColor3 = Theme.Dim,
-        Font = Theme.FontBold, TextSize = 10,
-        TextXAlignment = Enum.TextXAlignment.Left,
-        LayoutOrder = 1, Parent = SettingsPanel,
-    })
-    New("TextLabel", {
-        Text = "Theme", Size = UDim2.new(1,0,0,12),
-        BackgroundTransparency = 1, TextColor3 = Theme.Muted,
-        Font = Theme.Font, TextSize = 10,
-        TextXAlignment = Enum.TextXAlignment.Left,
-        LayoutOrder = 2, Parent = SettingsPanel,
-    })
-    local ThemeSwatchRow = New("Frame", {
-        Size = UDim2.new(1,0,0,24), BackgroundTransparency = 1,
-        LayoutOrder = 3, Parent = SettingsPanel,
-    })
-    New("UIListLayout", {
-        Padding = UDim.new(0,6), FillDirection = Enum.FillDirection.Horizontal,
-        SortOrder = Enum.SortOrder.LayoutOrder, Parent = ThemeSwatchRow,
-    })
-    local _themeSwatchRings = {}
-    for _, themeName in ipairs(Window:GetThemeNames()) do
-        local sw = New("TextButton", {
-            Text = "", Size = UDim2.new(0,24,0,24),
-            BackgroundColor3 = Themes[themeName].Accent,
-            BorderSizePixel = 0, AutoButtonColor = false,
-            Parent = ThemeSwatchRow,
-        })
-        Corner(12, sw)
-        local ring = Stroke(themeName == _currentThemeName and Color3.new(1,1,1) or Theme.Border, themeName == _currentThemeName and 2 or 1, sw)
-        _themeSwatchRings[themeName] = ring
-        sw.MouseButton1Click:Connect(function()
-            Window:SetTheme(themeName)
-            for tn, r in pairs(_themeSwatchRings) do
-                r.Color = (tn == themeName) and Color3.new(1,1,1) or Theme.Border
-                r.Thickness = (tn == themeName) and 2 or 1
-            end
-        end)
-    end
-
-    New("Frame", {
-        Size = UDim2.new(1,0,0,1), BackgroundColor3 = Theme.Border,
-        BorderSizePixel = 0, LayoutOrder = 4, Parent = SettingsPanel,
-    })
-
-    New("TextLabel", {
-        Text = "Toggle UI Keybind", Size = UDim2.new(1,0,0,12),
-        BackgroundTransparency = 1, TextColor3 = Theme.Muted,
-        Font = Theme.Font, TextSize = 10,
-        TextXAlignment = Enum.TextXAlignment.Left,
-        LayoutOrder = 5, Parent = SettingsPanel,
-    })
-    local KeybindRow = New("Frame", {
-        Size = UDim2.new(1,0,0,28), BackgroundColor3 = Theme.Surface,
-        BorderSizePixel = 0, LayoutOrder = 6, Parent = SettingsPanel,
-    })
-    Corner(7, KeybindRow) Stroke(Theme.Border, 1, KeybindRow)
-    local ToggleKeyBtn = New("TextButton", {
-        Text = _toggleUIKey.Name,
-        Size = UDim2.new(1,-12,1,-6), Position = UDim2.new(0,6,0,3),
-        BackgroundColor3 = Theme.Surface3, BorderSizePixel = 0,
-        TextColor3 = Theme.Accent, Font = Theme.FontMono, TextSize = 11,
-        AutoButtonColor = false, Parent = KeybindRow,
-    })
-    Corner(5, ToggleKeyBtn)
-    ToggleKeyBtn.MouseButton1Click:Connect(function()
-        if _listeningForToggle then return end
-        _listeningForToggle = true
-        ToggleKeyBtn.Text = "..."
-        Tween(ToggleKeyBtn, {BackgroundColor3=Theme.Accent, TextColor3=Color3.new(1,1,1)}, 0.1)
-    end)
-
-    local SettingsCloseBtn = New("TextButton", {
-        Text = "x", Size = UDim2.new(0,16,0,16),
-        Position = UDim2.new(1,-22,0,-28),
-        BackgroundTransparency = 1, TextColor3 = Theme.Muted,
-        Font = Theme.FontBold, TextSize = 13,
-        ZIndex = 61, Parent = SettingsPanel,
-    })
-    SettingsCloseBtn.MouseButton1Click:Connect(function() SettingsPanel.Visible = false end)
+    local uiVisible = true
 
     UserInputService.InputBegan:Connect(function(input, gp)
-        if _listeningForToggle then
-            if input.UserInputType == Enum.UserInputType.Keyboard then
-                _listeningForToggle = false
-                _toggleUIKey = input.KeyCode
-                ToggleKeyBtn.Text = _toggleUIKey.Name
-                Tween(ToggleKeyBtn, {BackgroundColor3=Theme.Surface3, TextColor3=Theme.Accent}, 0.1)
-            end
-            return
-        end
+        if _listeningForToggle then return end
         if gp then return end
         if input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode == _toggleUIKey then
             uiVisible = not uiVisible
@@ -864,32 +769,31 @@ function NebulaHub:CreateWindow(config)
         end
     end)
 
-    OnThemeChanged(function(t)
-        settingsStroke.Color = t.Border
-        SettingsPanel.BackgroundColor3 = t.Surface2
-    end)
-
-    local ChatBtn  = IconBarBtn(1, 3, "chat-circle", "Phosphor", function()
-        Window:Notify({Title="Chat", Message="Chat panel coming soon", Type="info"})
-    end)
-    local BellBtn  = IconBarBtn(2, 3, "bell-simple", "Phosphor", function()
-        Window:Notify({Title="Notifications", Message="You're all caught up", Type="info"})
-    end)
-    local GearBtn  = IconBarBtn(3, 3, "gear-six", "Phosphor", function()
-        SettingsPanel.Visible = not SettingsPanel.Visible
-    end)
-
     function Window:CreateTab(name, tcfg)
         tcfg = tcfg or {}
-        local isFirst = #self._tabs == 0
+        local pinned = tcfg.Pinned == true
+        local isFirst = (not pinned) and (#self._tabs == 0)
+
+        local navParent = pinned and PinRows or TabScroll
+        local layoutOrder
+        if pinned then
+            if tcfg.PinOrder then
+                layoutOrder = tcfg.PinOrder
+            else
+                self._pinnedSeq = self._pinnedSeq + 1
+                layoutOrder = self._pinnedSeq
+            end
+        else
+            layoutOrder = #self._tabs + 1
+        end
 
         local TabBtn = New("TextButton", {
-            Text = "", Size = UDim2.new(1,0,0,34),
+            Text = "", Size = UDim2.new(1,0,0,ROW_H),
             BackgroundColor3 = Theme.Surface3,
             BackgroundTransparency = isFirst and 0 or 1,
             BorderSizePixel = 0, AutoButtonColor = false,
-            LayoutOrder = #self._tabs + 1,
-            ZIndex = 4, Parent = TabScroll,
+            LayoutOrder = layoutOrder,
+            ZIndex = 4, Parent = navParent,
         })
         Corner(8, TabBtn)
 
@@ -968,6 +872,8 @@ function NebulaHub:CreateWindow(config)
                 Tween(TabLbl, {TextColor3=Theme.Muted}, 0.1)
             end
         end)
+
+        if pinned then RecalcSidebar() end
 
         local Tab = {_page=Page, _order=0, _screen=Gui, _window=Window}
 
@@ -1738,7 +1644,7 @@ function NebulaHub:CreateWindow(config)
     end
 
     function Window:CreateInfoTab(label)
-        local Tab = self:CreateTab(label or "Info", {Icon="info", IconSource="Phosphor"})
+        local Tab = self:CreateTab(label or "Info", {Icon="info", IconSource="Phosphor", Pinned=true})
         local Page = Tab._page
 
         local Card = New("Frame", {
@@ -1766,15 +1672,38 @@ function NebulaHub:CreateWindow(config)
             TextXAlignment = Enum.TextXAlignment.Left, Parent = Card,
         })
 
-        local function Row(label2, value2, order)
+        local function Row(label2, value2, order, copyable)
             local R = New("Frame", { Size = UDim2.new(1,0,0,30), BackgroundColor3 = Theme.Surface, BorderSizePixel = 0, LayoutOrder = order, Parent = Page })
             Corner(8,R) Stroke(Theme.Border,1,R)
             New("TextLabel", { Text = label2, Size = UDim2.new(0.5,-12,1,0), Position = UDim2.new(0,12,0,0), BackgroundTransparency=1, TextColor3=Theme.Muted, Font=Theme.Font, TextSize=11, TextXAlignment=Enum.TextXAlignment.Left, Parent=R })
-            local V = New("TextLabel", { Text = value2, Size = UDim2.new(0.5,-12,1,0), Position = UDim2.new(0.5,0,0,0), BackgroundTransparency=1, TextColor3=Theme.Text, Font=Theme.FontMono, TextSize=11, TextXAlignment=Enum.TextXAlignment.Right, TextTruncate=Enum.TextTruncate.AtEnd, Parent=R })
+            local valW = copyable and 0.5-30 or 0.5-12
+            local V = New("TextLabel", { Text = value2, Size = UDim2.new(0.5,copyable and -34 or -12,1,0), Position = UDim2.new(0.5,0,0,0), BackgroundTransparency=1, TextColor3=Theme.Text, Font=Theme.FontMono, TextSize=11, TextXAlignment=Enum.TextXAlignment.Right, TextTruncate=Enum.TextTruncate.AtEnd, Parent=R })
+            if copyable then
+                local CopyBtn = New("TextButton", {
+                    Text="", Size=UDim2.new(0,20,0,20), Position=UDim2.new(1,-22,0.5,-10),
+                    BackgroundTransparency=1, AutoButtonColor=false, ZIndex=2, Parent=R,
+                })
+                local cIco = New("ImageLabel", {
+                    Size=UDim2.new(0,13,0,13), Position=UDim2.new(0.5,-6,0.5,-6),
+                    BackgroundTransparency=1, ImageColor3=Theme.Muted, Parent=CopyBtn,
+                })
+                ApplyIcon(cIco, "copy", "Phosphor")
+                CopyBtn.MouseEnter:Connect(function() TintIcon(cIco, Theme.Text) end)
+                CopyBtn.MouseLeave:Connect(function() TintIcon(cIco, Theme.Muted) end)
+                CopyBtn.MouseButton1Click:Connect(function()
+                    local ok = pcall(function() setclipboard(value2) end)
+                    Window:Notify({
+                        Title = ok and "Copied" or "Copy Failed",
+                        Message = ok and (label2.." copied to clipboard") or "Clipboard access unavailable",
+                        Type = ok and "success" or "error",
+                    })
+                end)
+            end
             return V
         end
 
-        Row("Job ID", game.JobId ~= "" and game.JobId or "Studio", 1)
+        local jobIdStr = game.JobId ~= "" and game.JobId or "Studio"
+        Row("Job ID", jobIdStr, 1, true)
         Row("Players", tostring(#Players:GetPlayers()).."/"..tostring(Players.MaxPlayers), 2)
         Row("Display Name", displayName, 3)
         Row("Username", "@"..username, 4)
@@ -1786,7 +1715,7 @@ function NebulaHub:CreateWindow(config)
         local FpsVal = Row("FPS", "0", 8)
         local PingVal = Row("Ping", "0 ms", 9)
 
-        local _fpsAccum, _fpsCount, _fpsClock = 0, 0, os.clock()
+        local _fpsAccum, _fpsCount = 0, 0
         RunService.Heartbeat:Connect(function(dt)
             _fpsAccum += dt
             _fpsCount += 1
@@ -1809,7 +1738,7 @@ function NebulaHub:CreateWindow(config)
     end
 
     function Window:CreateConfigTab(label)
-        local Tab = self:CreateTab(label or "Configs", {Icon="floppy-disk", IconSource="Phosphor"})
+        local Tab = self:CreateTab(label or "Configs", {Icon="floppy-disk", IconSource="Phosphor", Pinned=true})
         Tab:AddSection("Save Config")
         local nameInput = Tab:AddInput({Label="Config Name", Placeholder="my-config"})
         Tab:AddButton({Text="Save Config", Icon="download-simple", IconSource="Phosphor", Callback=function()
@@ -1847,6 +1776,76 @@ function NebulaHub:CreateWindow(config)
             end
         end})
         return Tab
+    end
+
+    do
+        local Tab = self:CreateTab("Settings", {Icon="gear-six", IconSource="Phosphor", Pinned=true, PinOrder=9999})
+        local Page = Tab._page
+
+        Tab:AddSection("Appearance")
+        local SwatchRow = New("Frame", { Size=UDim2.new(1,0,0,28), BackgroundTransparency=1, LayoutOrder=999, Parent=Page })
+        New("UIListLayout", { Padding=UDim.new(0,8), FillDirection=Enum.FillDirection.Horizontal, SortOrder=Enum.SortOrder.LayoutOrder, Parent=SwatchRow })
+        local _themeSwatchRings = {}
+        for _, themeName in ipairs(Window:GetThemeNames()) do
+            local sw = New("TextButton", {
+                Text = "", Size = UDim2.new(0,26,0,26),
+                BackgroundColor3 = Themes[themeName].Accent,
+                BorderSizePixel = 0, AutoButtonColor = false,
+                Parent = SwatchRow,
+            })
+            Corner(13, sw)
+            local ring = Stroke(themeName == _currentThemeName and Color3.new(1,1,1) or Theme.Border, themeName == _currentThemeName and 2 or 1, sw)
+            _themeSwatchRings[themeName] = ring
+            sw.MouseButton1Click:Connect(function()
+                Window:SetTheme(themeName)
+                for tn, r in pairs(_themeSwatchRings) do
+                    r.Color = (tn == themeName) and Color3.new(1,1,1) or Theme.Border
+                    r.Thickness = (tn == themeName) and 2 or 1
+                end
+            end)
+        end
+
+        Tab:AddSeparator()
+        Tab:AddSection("Behavior")
+
+        local KeybindRow = New("Frame", {
+            Size = UDim2.new(1,0,0,34), BackgroundColor3 = Theme.Surface,
+            BorderSizePixel = 0, LayoutOrder = 1001, Parent = Page,
+        })
+        Corner(8, KeybindRow) Stroke(Theme.Border, 1, KeybindRow)
+        New("TextLabel", {
+            Text = "Toggle UI Keybind", Size = UDim2.new(1,-96,1,0), Position = UDim2.new(0,14,0,0),
+            BackgroundTransparency = 1, TextColor3 = Theme.Text,
+            Font = Theme.Font, TextSize = 12,
+            TextXAlignment = Enum.TextXAlignment.Left, Parent = KeybindRow,
+        })
+        local ToggleKeyBtn = New("TextButton", {
+            Text = _toggleUIKey.Name,
+            Size = UDim2.new(0,84,0,22), Position = UDim2.new(1,-92,0.5,-11),
+            BackgroundColor3 = Theme.Surface3, BorderSizePixel = 0,
+            TextColor3 = Theme.Accent, Font = Theme.FontMono, TextSize = 10,
+            AutoButtonColor = false, Parent = KeybindRow,
+        })
+        Corner(5, ToggleKeyBtn) Stroke(Theme.Border2, 1, ToggleKeyBtn)
+        ToggleKeyBtn.MouseButton1Click:Connect(function()
+            if _listeningForToggle then return end
+            _listeningForToggle = true
+            ToggleKeyBtn.Text = "..."
+            Tween(ToggleKeyBtn, {BackgroundColor3=Theme.Accent, TextColor3=Color3.new(1,1,1)}, 0.1)
+        end)
+        UserInputService.InputBegan:Connect(function(input, gp)
+            if _listeningForToggle and input.UserInputType == Enum.UserInputType.Keyboard then
+                _listeningForToggle = false
+                _toggleUIKey = input.KeyCode
+                ToggleKeyBtn.Text = _toggleUIKey.Name
+                Tween(ToggleKeyBtn, {BackgroundColor3=Theme.Surface3, TextColor3=Theme.Accent}, 0.1)
+            end
+        end)
+
+        Tab:AddParagraph({
+            Title = "About",
+            Content = Title.." — change the accent theme above, or rebind the key that shows/hides the whole interface.",
+        })
     end
 
     return Window
