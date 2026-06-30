@@ -363,26 +363,22 @@ function NebulaHub:CreateWindow(config)
     })
 
     -- ── Sidebar ───────────────────────────────────────────────────────────────
-    local SIDE_COLLAPSED = 52   -- icon-only width
-    local SIDE_EXPANDED  = 172  -- icon + label width
-    local sideExpanded   = false
+    -- Fixed-width, always-expanded sidebar (no collapse/hamburger anymore) —
+    -- full icon + label tab rows, a big centered brand title, a small icon
+    -- bar (chat / notifications / settings), and a user card at the bottom.
+    local SIDEBAR_W = 230
 
-    -- Layout constants for the top of the sidebar:
-    --   [ Logo / game info (tight, auto-fit) : 0 -> 56 ]   "Nebula Hub" sits at the very top
-    --   [ Hamburger row : 56 -> 92 ]
-    --   [ Divider : 88 ]
-    --   [ Tab scroll : 96 -> ... ]
-    local LOGO_H     = 40   -- game thumbnail/name now live in the Info panel
-    local HAM_ROW_H  = 36
-    local USERCARD_H = 84   -- avatar/name row + settings/info icon row
-    local LOGO_TOP   = 0
-    local HAM_TOP    = LOGO_TOP + LOGO_H
-    local DIVIDER_Y  = HAM_TOP + HAM_ROW_H - 4
-    local TABS_TOP   = HAM_TOP + HAM_ROW_H + 4
+    local LOGO_H      = 92   -- big centered title + subtitle
+    local TABS_TOP    = LOGO_H + 6
+    local ICONBAR_H   = 44
+    local USERCARD_H  = 60
+    local BOTTOM_GAP  = 8
+    local BOTTOM_PAD  = 10
+    local BOTTOM_REGION = ICONBAR_H + BOTTOM_GAP + USERCARD_H + BOTTOM_GAP + BOTTOM_PAD
 
     local Sidebar = New("Frame", {
         Name = "Sidebar",
-        Size = UDim2.new(0, SIDE_COLLAPSED, 1, 0),
+        Size = UDim2.new(0, SIDEBAR_W, 1, 0),
         BackgroundColor3 = Theme.Surface,
         BorderSizePixel  = 0,
         ZIndex           = 3,
@@ -397,69 +393,35 @@ function NebulaHub:CreateWindow(config)
     })
     local sideStroke = Stroke(Theme.Border, 1, Sidebar)
 
-    -- Logo area — sits at the very top of the sidebar, tight fit (no dead space)
+    -- Logo area — big centered brand title + small subtitle underneath
     local LogoFrame = New("Frame", {
         Size = UDim2.new(1,0,0,LOGO_H),
-        Position = UDim2.new(0,0,0,LOGO_TOP),
+        Position = UDim2.new(0,0,0,0),
         BackgroundTransparency = 1,
         ZIndex = 3, Parent = Sidebar,
     })
-    -- Logo dot accent (always visible, even collapsed)
-    local LogoDot = New("Frame", {
-        Size = UDim2.new(0,8,0,8), Position = UDim2.new(0,16,0.5,-4),
-        BackgroundColor3 = Theme.Accent, BorderSizePixel = 0,
-        ZIndex = 5, Parent = LogoFrame,
-    })
-    Corner(4, LogoDot)
-
-    -- Title label (hidden when collapsed). Game thumbnail/name and Job ID now
-    -- live in the Info panel (the small "i" icon under the avatar) instead of
-    -- crowding the sidebar header.
     local TitleLbl = New("TextLabel", {
-        Text = Title, Size = UDim2.new(1,-40,1,0),
-        Position = UDim2.new(0,32,0,0),
+        Text = Title, Size = UDim2.new(1,-20,0,34),
+        Position = UDim2.new(0,10,0,16),
         BackgroundTransparency = 1, TextColor3 = Theme.Text,
-        Font = Theme.FontBold, TextSize = 13,
-        TextXAlignment = Enum.TextXAlignment.Left,
+        Font = Theme.FontBold, TextSize = 26,
+        TextXAlignment = Enum.TextXAlignment.Center,
         TextTruncate = Enum.TextTruncate.AtEnd,
-        Visible = false, ZIndex = 4, Parent = LogoFrame,
+        ZIndex = 4, Parent = LogoFrame,
     })
-
-    -- ── Hamburger row (now BELOW the title/logo, in its own slim row) ───────
-    local HamRow = New("Frame", {
-        Size = UDim2.new(1,0,0,HAM_ROW_H),
-        Position = UDim2.new(0,0,0,HAM_TOP),
-        BackgroundTransparency = 1,
-        ZIndex = 3, Parent = Sidebar,
-    })
-    local HamBtn = New("TextButton", {
-        Text = "", Size = UDim2.new(0,26,0,26),
-        Position = UDim2.new(1,-36,0.5,-13),
-        BackgroundColor3 = Theme.Surface2,
-        BorderSizePixel = 0, AutoButtonColor = false,
-        ZIndex = 10, Parent = HamRow,
-    })
-    Corner(7, HamBtn)
-    Stroke(Theme.Border2, 1, HamBtn)
-    -- Three-line hamburger icon drawn with frames
-    for i = 0, 2 do
-        New("Frame", {
-            Size = UDim2.new(0, i == 1 and 9 or 13, 0, 2),
-            Position = UDim2.new(0.5, i==1 and -4.5 or -6.5, 0, 7 + i*6),
-            BackgroundColor3 = Theme.Muted,
-            BorderSizePixel = 0, ZIndex = 11, Parent = HamBtn,
-        })
-    end
-
-    local logoDivider = New("Frame", {
-        Size = UDim2.new(1,-16,0,1), Position = UDim2.new(0,8,0,DIVIDER_Y),
-        BackgroundColor3 = Theme.Border, BorderSizePixel = 0,
-        ZIndex = 3, Parent = Sidebar,
+    local SubtitleLbl = New("TextLabel", {
+        Text = Subtitle, Size = UDim2.new(1,-20,0,14),
+        Position = UDim2.new(0,10,0,52),
+        BackgroundTransparency = 1, TextColor3 = Theme.Dim,
+        Font = Theme.Font, TextSize = 10.5,
+        TextXAlignment = Enum.TextXAlignment.Center,
+        TextTruncate = Enum.TextTruncate.AtEnd,
+        ZIndex = 4, Parent = LogoFrame,
     })
 
     -- Tab button scroll container
     local TabScroll = New("ScrollingFrame", {
-        Size = UDim2.new(1,0,1,-(TABS_TOP+USERCARD_H)),
+        Size = UDim2.new(1,0,1,-(TABS_TOP+BOTTOM_REGION)),
         Position = UDim2.new(0,0,0,TABS_TOP),
         BackgroundTransparency = 1, BorderSizePixel = 0,
         ScrollBarThickness = 0,
@@ -468,75 +430,122 @@ function NebulaHub:CreateWindow(config)
         ZIndex = 3, Parent = Sidebar,
     })
     New("UIListLayout", {
-        Padding = UDim.new(0,2), FillDirection = Enum.FillDirection.Vertical,
+        Padding = UDim.new(0,4), FillDirection = Enum.FillDirection.Vertical,
         SortOrder = Enum.SortOrder.LayoutOrder, Parent = TabScroll,
     })
-    Pad(6,6,4,4, TabScroll)
+    Pad(10,10,4,4, TabScroll)
 
-    -- User card (bottom of sidebar)
-    local UserCard = New("Frame", {
-        Size = UDim2.new(1,0,0,USERCARD_H),
-        Position = UDim2.new(0,0,1,-USERCARD_H),
-        BackgroundTransparency = 1,
-        ZIndex = 3, Parent = Sidebar,
+    -- ── Icon bar (chat / notifications / settings) — sits above the user
+    -- card. Chat and bell are reserved for later; the gear is fully wired
+    -- up below to the working Settings panel. ─────────────────────────────────
+    local IconBar = New("Frame", {
+        Size = UDim2.new(1,-16,0,ICONBAR_H),
+        Position = UDim2.new(0,8,1,-(USERCARD_H+BOTTOM_GAP+ICONBAR_H+BOTTOM_PAD)),
+        BackgroundColor3 = Theme.Surface2, BorderSizePixel = 0,
+        ZIndex = 4, Parent = Sidebar,
     })
-    New("Frame", {
-        Size = UDim2.new(1,-16,0,1), Position = UDim2.new(0,8,0,0),
-        BackgroundColor3 = Theme.Border, BorderSizePixel = 0,
-        ZIndex = 3, Parent = UserCard,
-    })
-    local AvatarImg = New("ImageLabel", {
-        Size = UDim2.new(0,28,0,28), Position = UDim2.new(0,12,0,12),
-        BackgroundColor3 = Theme.Surface3, BorderSizePixel = 0,
-        Image = avatarUrl, ZIndex = 4, Parent = UserCard,
-    })
-    Corner(14, AvatarImg)
-    Stroke(Theme.Border2, 1.5, AvatarImg)
-    local UserDisplayLbl = New("TextLabel", {
-        Text = displayName, Size = UDim2.new(1,-50,0,14),
-        Position = UDim2.new(0,46,0,12),
-        BackgroundTransparency = 1, TextColor3 = Theme.Text,
-        Font = Theme.Font, TextSize = 11,
-        TextXAlignment = Enum.TextXAlignment.Left,
-        TextTruncate = Enum.TextTruncate.AtEnd,
-        Visible = false, ZIndex = 4, Parent = UserCard,
-    })
-    local UserNameLbl = New("TextLabel", {
-        Text = "@"..username, Size = UDim2.new(1,-50,0,11),
-        Position = UDim2.new(0,46,0,28),
-        BackgroundTransparency = 1, TextColor3 = Theme.Dim,
-        Font = Theme.Font, TextSize = 9,
-        TextXAlignment = Enum.TextXAlignment.Left,
-        Visible = false, ZIndex = 4, Parent = UserCard,
-    })
+    Corner(12, IconBar)
+    local iconBarStroke = Stroke(Theme.Border, 1, IconBar)
 
-    -- ── Settings / Info icon row — sits right under the avatar, always
-    -- visible (icon-only) regardless of whether the sidebar is expanded ──────
-    local IconRow = New("Frame", {
-        Size = UDim2.new(1,0,0,28), Position = UDim2.new(0,0,0,48),
-        BackgroundTransparency = 1, ZIndex = 4, Parent = UserCard,
-    })
-    local function MakeSmallIconBtn(x, name, source)
+    local function IconBarBtn(idx, name, source, callback)
         local b = New("TextButton", {
-            Text = "", Size = UDim2.new(0,24,0,24),
-            Position = UDim2.new(0,x,0,2),
-            BackgroundColor3 = Theme.Surface2, BorderSizePixel = 0,
-            AutoButtonColor = false, ZIndex = 5, Parent = IconRow,
+            Text = "", Size = UDim2.new(1/3,0,1,0), Position = UDim2.new((idx-1)/3,0,0,0),
+            BackgroundTransparency = 1, AutoButtonColor = false,
+            ZIndex = 5, Parent = IconBar,
         })
-        Corner(7, b)
-        Stroke(Theme.Border2, 1, b)
         local img = New("ImageLabel", {
-            Size = UDim2.new(0,13,0,13), Position = UDim2.new(0.5,-6.5,0.5,-6.5),
+            Size = UDim2.new(0,16,0,16), Position = UDim2.new(0.5,-8,0.5,-8),
             BackgroundTransparency = 1, ImageColor3 = Theme.Muted,
             ZIndex = 6, Parent = b,
         })
         ApplyIcon(img, name, source)
-        b.MouseEnter:Connect(function() Tween(b,{BackgroundColor3=Theme.Surface3},0.1) TintIcon(img, Theme.Text) end)
-        b.MouseLeave:Connect(function() Tween(b,{BackgroundColor3=Theme.Surface2},0.1) TintIcon(img, Theme.Muted) end)
+        b.MouseEnter:Connect(function() TintIcon(img, Theme.Text) end)
+        b.MouseLeave:Connect(function() TintIcon(img, Theme.Muted) end)
+        if callback then b.MouseButton1Click:Connect(callback) end
+        if idx < 3 then
+            New("Frame", {
+                Size = UDim2.new(0,1,0,20), Position = UDim2.new(idx/3,0,0.5,-10),
+                BackgroundColor3 = Theme.Border, BorderSizePixel = 0,
+                ZIndex = 5, Parent = IconBar,
+            })
+        end
         return b
     end
-    local GearBtn = MakeSmallIconBtn(12, "settings", "Lucide")
-    local InfoBtn  = MakeSmallIconBtn(42, "info", "Lucide")
+    local ChatBtn  = IconBarBtn(1, "message-circle", "Lucide", nil) -- reserved for later
+    local BellBtn  = IconBarBtn(2, "bell", "Lucide", nil)            -- reserved for later
+    local GearBtn  = IconBarBtn(3, "settings", "Lucide", nil)        -- wired to Settings panel below
+
+    -- ── User card (bottom of sidebar) — avatar with an online status dot,
+    -- display name, and a live session timer underneath. ─────────────────────
+    local UserCard = New("Frame", {
+        Size = UDim2.new(1,-16,0,USERCARD_H),
+        Position = UDim2.new(0,8,1,-(USERCARD_H+BOTTOM_PAD)),
+        BackgroundColor3 = Theme.Surface2, BorderSizePixel = 0,
+        ZIndex = 4, Parent = Sidebar,
+    })
+    Corner(12, UserCard)
+    local userCardStroke = Stroke(Theme.Border, 1, UserCard)
+
+    local AvatarImg = New("ImageLabel", {
+        Size = UDim2.new(0,34,0,34), Position = UDim2.new(0,10,0.5,-17),
+        BackgroundColor3 = Theme.Surface3, BorderSizePixel = 0,
+        Image = avatarUrl, ZIndex = 5, Parent = UserCard,
+    })
+    Corner(17, AvatarImg)
+    Stroke(Theme.Border2, 1.5, AvatarImg)
+    local StatusDot = New("Frame", {
+        Size = UDim2.new(0,10,0,10), Position = UDim2.new(1,-10,1,-10),
+        BackgroundColor3 = Theme.Green, BorderSizePixel = 0,
+        ZIndex = 6, Parent = AvatarImg,
+    })
+    Corner(5, StatusDot)
+    local statusDotRing = Stroke(Theme.Surface2, 2, StatusDot)
+
+    local UserDisplayLbl = New("TextLabel", {
+        Text = displayName, Size = UDim2.new(1,-56,0,16),
+        Position = UDim2.new(0,52,0,10),
+        BackgroundTransparency = 1, TextColor3 = Theme.Text,
+        Font = Theme.FontBold, TextSize = 12,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        TextTruncate = Enum.TextTruncate.AtEnd,
+        ZIndex = 5, Parent = UserCard,
+    })
+    local SessionRow = New("Frame", {
+        Size = UDim2.new(1,-56,0,14), Position = UDim2.new(0,52,0,29),
+        BackgroundTransparency = 1, ZIndex = 5, Parent = UserCard,
+    })
+    local SessionIcon = New("ImageLabel", {
+        Size = UDim2.new(0,10,0,10), Position = UDim2.new(0,0,0.5,-5),
+        BackgroundTransparency = 1, ImageColor3 = Theme.Dim,
+        ZIndex = 6, Parent = SessionRow,
+    })
+    ApplyIcon(SessionIcon, "clock", "Lucide")
+    local SessionLbl = New("TextLabel", {
+        Text = "0s", Size = UDim2.new(1,-14,1,0), Position = UDim2.new(0,14,0,0),
+        BackgroundTransparency = 1, TextColor3 = Theme.Dim,
+        Font = Theme.Font, TextSize = 9.5,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        ZIndex = 6, Parent = SessionRow,
+    })
+
+    -- Live session timer (counts up from when the hub was loaded)
+    local _sessionStart = os.clock()
+    task.spawn(function()
+        while Gui.Parent do
+            local elapsed = os.clock() - _sessionStart
+            local h = math.floor(elapsed/3600)
+            local m = math.floor((elapsed%3600)/60)
+            local s = math.floor(elapsed%60)
+            if h > 0 then
+                SessionLbl.Text = string.format("%dh %dm", h, m)
+            elseif m > 0 then
+                SessionLbl.Text = string.format("%dm %ds", m, s)
+            else
+                SessionLbl.Text = string.format("%ds", s)
+            end
+            task.wait(1)
+        end
+    end)
 
     -- ── Content area ─────────────────────────────────────────────────────────
     local ContentArea = New("Frame", {
