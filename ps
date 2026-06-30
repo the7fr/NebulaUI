@@ -240,6 +240,10 @@ local function GetConfigFolder()
     return "NebulaHub/Configs"
 end
 
+local function GetKeyFolder()
+    return "NebulaHub/Keys"
+end
+
 local function RegisterFlag(window, cfg, obj, getKey, setKey)
     if cfg and cfg.Flag and window then
         window.Flags[cfg.Flag] = {
@@ -247,6 +251,246 @@ local function RegisterFlag(window, cfg, obj, getKey, setKey)
             Set = function(v) obj[setKey](obj, v) end,
         }
     end
+end
+
+-- ============================================================
+-- KEY SYSTEM
+-- ============================================================
+function NebulaHub:KeySystem(config)
+    config = config or {}
+    local Title         = config.Title or "Key System"
+    local Subtitle       = config.Subtitle or "Enter your key to continue"
+    local Note           = config.Note or ""
+    local DiscordInvite  = config.DiscordInvite
+    local SaveKey        = config.SaveKey ~= false
+    local FileName       = config.FileName or "key"
+    local StaticKeys     = config.Keys
+    local OnValidate     = config.OnValidate
+
+    SetTheme(config.Theme or _currentThemeName)
+
+    local function CheckKey(key)
+        if OnValidate then
+            local ok, result = pcall(OnValidate, key)
+            if ok then return result == true end
+            return false
+        end
+        if StaticKeys then
+            for _, k in ipairs(StaticKeys) do
+                if k == key then return true end
+            end
+            return false
+        end
+        return false
+    end
+
+    if SaveKey then
+        local ok, saved = pcall(readfile, GetKeyFolder().."/"..FileName..".txt")
+        if ok and saved and CheckKey(saved) then
+            return true
+        end
+    end
+
+    local Gui = New("ScreenGui", {
+        Name = "NebulaKeySystem", ResetOnSpawn = false,
+        ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+    })
+    if not pcall(function() Gui.Parent = CoreGui end) then
+        Gui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+    end
+
+    local Overlay = New("Frame", {
+        Size = UDim2.new(1,0,1,0), BackgroundColor3 = Color3.new(0,0,0),
+        BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 500, Parent = Gui,
+    })
+    Tween(Overlay, {BackgroundTransparency = 0.45}, 0.25)
+
+    local Card = New("Frame", {
+        Size = UDim2.new(0, 360, 0, 0), AutomaticSize = Enum.AutomaticSize.Y,
+        Position = UDim2.new(0.5, -180, 0.52, -20),
+        BackgroundColor3 = Theme.BG, BorderSizePixel = 0,
+        ZIndex = 501, Parent = Gui,
+    })
+    Corner(16, Card)
+    Stroke(Theme.Border, 1, Card)
+
+    local Inner = New("Frame", {
+        Size = UDim2.new(1,0,0,0), AutomaticSize = Enum.AutomaticSize.Y,
+        BackgroundTransparency = 1, ZIndex = 502, Parent = Card,
+    })
+    New("UIListLayout", {
+        Padding = UDim.new(0,12), FillDirection = Enum.FillDirection.Vertical,
+        SortOrder = Enum.SortOrder.LayoutOrder, HorizontalAlignment = Enum.HorizontalAlignment.Center,
+        Parent = Inner,
+    })
+    Pad(24,24,26,24, Inner)
+
+    local Glow = New("Frame", {
+        Size = UDim2.new(0,52,0,52), BackgroundColor3 = Theme.Accent,
+        BackgroundTransparency = 0.85, BorderSizePixel = 0,
+        LayoutOrder = 0, ZIndex = 502, Parent = Inner,
+    })
+    Corner(14, Glow)
+    local LockIcon = New("ImageLabel", {
+        Size = UDim2.new(0,24,0,24), Position = UDim2.new(0.5,-12,0.5,-12),
+        BackgroundTransparency = 1, ImageColor3 = Theme.Accent,
+        ZIndex = 503, Parent = Glow,
+    })
+    ApplyIcon(LockIcon, "lock-key", "Phosphor", 24)
+
+    New("TextLabel", {
+        Text = Title, Size = UDim2.new(1,0,0,22),
+        BackgroundTransparency = 1, TextColor3 = Theme.Text,
+        Font = Theme.FontBold, TextSize = 18,
+        TextXAlignment = Enum.TextXAlignment.Center,
+        LayoutOrder = 1, Parent = Inner,
+    })
+    New("TextLabel", {
+        Text = Subtitle, Size = UDim2.new(1,0,0,16),
+        BackgroundTransparency = 1, TextColor3 = Theme.Muted,
+        Font = Theme.Font, TextSize = 12,
+        TextXAlignment = Enum.TextXAlignment.Center,
+        LayoutOrder = 2, Parent = Inner,
+    })
+
+    if Note ~= "" then
+        New("TextLabel", {
+            Text = Note, Size = UDim2.new(1,0,0,0), AutomaticSize = Enum.AutomaticSize.Y,
+            BackgroundTransparency = 1, TextColor3 = Theme.Dim,
+            Font = Theme.Font, TextSize = 11, TextWrapped = true,
+            TextXAlignment = Enum.TextXAlignment.Center,
+            LayoutOrder = 3, Parent = Inner,
+        })
+    end
+
+    local InputBox = New("Frame", {
+        Size = UDim2.new(1,0,0,44), BackgroundColor3 = Theme.Surface,
+        BorderSizePixel = 0, LayoutOrder = 4, Parent = Inner,
+    })
+    Corner(10, InputBox)
+    local inputStroke = Stroke(Theme.Border, 1, InputBox)
+    local KeyBox = New("TextBox", {
+        Text = "", PlaceholderText = "Enter key here...",
+        Size = UDim2.new(1,-24,1,0), Position = UDim2.new(0,12,0,0),
+        BackgroundTransparency = 1, TextColor3 = Theme.Text,
+        PlaceholderColor3 = Theme.Dim, Font = Theme.FontMono, TextSize = 13,
+        TextXAlignment = Enum.TextXAlignment.Left, ClearTextOnFocus = false,
+        ZIndex = 503, Parent = InputBox,
+    })
+    KeyBox.Focused:Connect(function() Tween(inputStroke, {Color = Theme.Accent}, 0.12) end)
+    KeyBox.FocusLost:Connect(function() Tween(inputStroke, {Color = Theme.Border}, 0.12) end)
+
+    local StatusLbl = New("TextLabel", {
+        Text = "", Size = UDim2.new(1,0,0,14),
+        BackgroundTransparency = 1, TextColor3 = Theme.Red,
+        Font = Theme.Font, TextSize = 10.5,
+        TextXAlignment = Enum.TextXAlignment.Center,
+        LayoutOrder = 5, Parent = Inner,
+    })
+
+    local SubmitBtn = New("TextButton", {
+        Text = "Submit", Size = UDim2.new(1,0,0,40),
+        BackgroundColor3 = Theme.Accent, BorderSizePixel = 0,
+        TextColor3 = Color3.new(1,1,1), Font = Theme.FontBold, TextSize = 13,
+        AutoButtonColor = false, LayoutOrder = 6, Parent = Inner,
+    })
+    Corner(10, SubmitBtn)
+    SubmitBtn.MouseEnter:Connect(function() Tween(SubmitBtn, {BackgroundColor3 = Theme.AccentFg}, 0.1) end)
+    SubmitBtn.MouseLeave:Connect(function() Tween(SubmitBtn, {BackgroundColor3 = Theme.Accent}, 0.1) end)
+
+    if DiscordInvite then
+        local DiscordBtn = New("TextButton", {
+            Text = "", Size = UDim2.new(1,0,0,38),
+            BackgroundColor3 = Theme.Surface2, BorderSizePixel = 0,
+            AutoButtonColor = false, LayoutOrder = 7, Parent = Inner,
+        })
+        Corner(10, DiscordBtn)
+        Stroke(Theme.Border, 1, DiscordBtn)
+        local DIcon = New("ImageLabel", {
+            Size = UDim2.new(0,15,0,15), Position = UDim2.new(0.5,-66,0.5,-7),
+            BackgroundTransparency = 1, ImageColor3 = Theme.Muted,
+            ZIndex = 503, Parent = DiscordBtn,
+        })
+        ApplyIcon(DIcon, "discord-logo", "Phosphor", 15)
+        local DLbl = New("TextLabel", {
+            Text = "Copy Discord Invite", Size = UDim2.new(0,140,1,0), Position = UDim2.new(0.5,-42,0,0),
+            BackgroundTransparency = 1, TextColor3 = Theme.Muted,
+            Font = Theme.Font, TextSize = 12,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            ZIndex = 503, Parent = DiscordBtn,
+        })
+        DiscordBtn.MouseEnter:Connect(function()
+            Tween(DiscordBtn, {BackgroundColor3 = Theme.Surface3}, 0.1)
+            TintIcon(DIcon, Theme.Text) Tween(DLbl, {TextColor3 = Theme.Text}, 0.1)
+        end)
+        DiscordBtn.MouseLeave:Connect(function()
+            Tween(DiscordBtn, {BackgroundColor3 = Theme.Surface2}, 0.1)
+            TintIcon(DIcon, Theme.Muted) Tween(DLbl, {TextColor3 = Theme.Muted}, 0.1)
+        end)
+        DiscordBtn.MouseButton1Click:Connect(function()
+            local ok = pcall(function() setclipboard(DiscordInvite) end)
+            DLbl.Text = ok and "Copied to clipboard!" or "Copy failed"
+            DLbl.TextColor3 = ok and Theme.Green or Theme.Red
+            task.delay(1.6, function()
+                DLbl.Text = "Copy Discord Invite"
+                DLbl.TextColor3 = Theme.Muted
+            end)
+        end)
+    end
+
+    local resultEvent = Instance.new("BindableEvent")
+    local resolved = false
+
+    local function Resolve(success)
+        if resolved then return end
+        resolved = true
+        if success and SaveKey then
+            pcall(function()
+                if not isfolder(GetKeyFolder()) then makefolder(GetKeyFolder()) end
+                writefile(GetKeyFolder().."/"..FileName..".txt", KeyBox.Text)
+            end)
+        end
+        Tween(Overlay, {BackgroundTransparency = 1}, 0.2)
+        Tween(Card, {BackgroundTransparency = 1}, 0.2)
+        task.delay(0.22, function() Gui:Destroy() end)
+        resultEvent:Fire(success)
+    end
+
+    local checking = false
+    local function TrySubmit()
+        if checking then return end
+        local key = KeyBox.Text
+        if key == "" then
+            StatusLbl.Text = "Please enter a key"
+            Tween(inputStroke, {Color = Theme.Red}, 0.1)
+            return
+        end
+        checking = true
+        SubmitBtn.Text = "Checking..."
+        StatusLbl.Text = ""
+        task.spawn(function()
+            local valid = CheckKey(key)
+            checking = false
+            if valid then
+                SubmitBtn.Text = "Submit"
+                StatusLbl.TextColor3 = Theme.Green
+                StatusLbl.Text = "Key accepted"
+                Tween(inputStroke, {Color = Theme.Green}, 0.1)
+                task.wait(0.35)
+                Resolve(true)
+            else
+                SubmitBtn.Text = "Submit"
+                StatusLbl.TextColor3 = Theme.Red
+                StatusLbl.Text = "Invalid key, try again"
+                Tween(inputStroke, {Color = Theme.Red}, 0.1)
+            end
+        end)
+    end
+
+    SubmitBtn.MouseButton1Click:Connect(TrySubmit)
+    KeyBox.FocusLost:Connect(function(enter) if enter then TrySubmit() end end)
+
+    return resultEvent.Event:Wait()
 end
 
 function NebulaHub:CreateWindow(config)
