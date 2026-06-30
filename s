@@ -39,25 +39,72 @@ local HttpService        = game:GetService("HttpService")
 
 local LocalPlayer = Players.LocalPlayer
 
--- ─── Icon Library ─────────────────────────────────────────────────────────────
-local _icons = nil
-local function LoadIcons()
-    if _icons then return _icons end
-    local ok, r = pcall(function()
-        return loadstring(game:HttpGet("https://raw.nebulasoftworks.xyz/nebula-icon-library-loader"))()
-    end)
-    _icons = (ok and r) or { GetIcon = function() return nil end, nebulaIcons = {} }
-    return _icons
+-- ─── Icon System ──────────────────────────────────────────────────────────────
+-- The previous version depended on an external "Nebula Icon Library" loader
+-- URL that doesn't actually exist, so every icon silently failed to render.
+-- This version uses a small built-in glyph set — no network calls, no missing
+-- asset ids, every icon renders every time. Pass a number instead of a name
+-- (e.g. Icon = 6034509993) to use your own uploaded rbxassetid image instead.
+local CharIcons = {
+    home          = "▲",
+    eye           = "◉",
+    settings      = "⚙",
+    gear          = "⚙",
+    bell          = "●",
+    palette       = "◆",
+    droplet       = "◆",
+    sliders       = "≡",
+    key           = "♦",
+    trash         = "✗",
+    info          = "ℹ",
+    check_circle  = "✓",
+    check         = "✓",
+    warning       = "⚠",
+    error         = "✗",
+    sword         = "†",
+    star          = "★",
+    search        = "◎",
+    x             = "✕",
+    plus          = "+",
+    minus         = "−",
+    chevron_down  = "▾",
+    chevron_up    = "▴",
+    paintbrush    = "◆",
+}
+setmetatable(CharIcons, { __index = function() return "●" end }) -- unknown name -> dot, never blank
+
+local function ApplyIcon(holder, val, color, sz)
+    sz = sz or 14
+    for _, ch in ipairs(holder:GetChildren()) do ch:Destroy() end
+    if not val then holder.Visible = false return end
+    holder.Visible = true
+    color = color or Color3.new(1,1,1)
+    if type(val) == "number" then
+        New("ImageLabel", {
+            Size = UDim2.new(1,0,1,0), BackgroundTransparency = 1,
+            Image = "rbxassetid://" .. tostring(val), ImageColor3 = color,
+            Parent = holder,
+        })
+        return
+    end
+    New("TextLabel", {
+        Size = UDim2.new(1,0,1,0), BackgroundTransparency = 1,
+        Text = CharIcons[tostring(val):lower()], TextColor3 = color,
+        Font = Enum.Font.GothamBold, TextSize = sz,
+        TextXAlignment = Enum.TextXAlignment.Center,
+        TextYAlignment = Enum.TextYAlignment.Center,
+        Parent = holder,
+    })
 end
 
-local function ApplyIcon(img, val, src)
-    if not val then img.Visible = false return end
-    img.Visible = true
-    if type(val) == "number" then
-        img.Image = "rbxassetid://" .. tostring(val)
+-- Re-tints an icon holder's current glyph/image after it was already built.
+local function TintIcon(holder, color, dur)
+    local child = holder:FindFirstChildOfClass("TextLabel") or holder:FindFirstChildOfClass("ImageLabel")
+    if not child then return end
+    if child:IsA("TextLabel") then
+        Tween(child, { TextColor3 = color }, dur or 0.12)
     else
-        local id = LoadIcons():GetIcon(val, src or "Symbols")
-        if id then img.Image = "rbxassetid://" .. tostring(id) else img.Visible = false end
+        Tween(child, { ImageColor3 = color }, dur or 0.12)
     end
 end
 
