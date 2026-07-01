@@ -1,5 +1,5 @@
--- STANDALONE — no HttpGet needed, lib is embedded directly below
--- Paste this entire file into your executor and run it
+-- STANDALONE — entire lib embedded, no HttpGet needed
+-- Paste this whole file into your executor and run it
 
 local NebulaHub = (function()
 local NebulaHub = {}
@@ -2017,7 +2017,7 @@ function NebulaHub:CreateWindow(config)
     end
 
     do
-        local Tab = self:CreateTab("Settings", {Icon="gear-six", IconSource="Phosphor", Pinned=true, PinOrder=9999})
+        local Tab = Window:CreateTab("Settings", {Icon="gear-six", IconSource="Phosphor", Pinned=true, PinOrder=9999})
         local Page = Tab._page
 
         Tab:AddSection("Appearance")
@@ -2091,8 +2091,6 @@ end
 
 return NebulaHub
 end)()
-
--- ====== TABS ======
 
 local Window = NebulaHub:CreateWindow({
     Title = "Nebula Hub",
