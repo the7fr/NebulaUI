@@ -1,4 +1,4 @@
--- STANDALONE — lib embedded directly, paste whole file into executor
+-- STANDALONE — lib embedded, paste whole file into executor
 
 local NebulaHub = (function()
 local NebulaHub = {}
@@ -686,43 +686,139 @@ function NebulaHub:CreateWindow(config)
     end
     RecalcSidebar()
 
-    local ContentArea = New("Frame", {
-        Name = "ContentArea",
+    local SEARCH_H = 46
+
+    local ContentOuter = New("Frame", {
+        Name = "ContentOuter",
         Size = UDim2.new(1, -(SIDEBAR_W+8), 1, -8),
         Position = UDim2.new(0, SIDEBAR_W+4, 0, 4),
         BackgroundTransparency = 1,
         Parent = Main,
     })
 
-    local function MakeWinBtn(xOff, label, hoverColor)
+    -- Search bar
+    local SearchBar = New("Frame", {
+        Size = UDim2.new(1,-38,0,34), Position = UDim2.new(0,0,0,6),
+        BackgroundColor3 = Theme.Surface2, BorderSizePixel = 0,
+        ZIndex = 6, Parent = ContentOuter,
+    })
+    Corner(10, SearchBar)
+    local searchStroke = Stroke(Theme.Border, 1, SearchBar)
+
+    local SearchIcon = New("TextLabel", {
+        Text = "🔍", Size = UDim2.new(0,28,1,0), Position = UDim2.new(0,0,0,0),
+        BackgroundTransparency = 1, TextColor3 = Theme.Dim,
+        Font = Theme.Font, TextSize = 13, ZIndex = 7, Parent = SearchBar,
+    })
+    local SearchBox = New("TextBox", {
+        Text = "", PlaceholderText = "Search features...",
+        Size = UDim2.new(1,-36,1,0), Position = UDim2.new(0,28,0,0),
+        BackgroundTransparency = 1, TextColor3 = Theme.Text,
+        PlaceholderColor3 = Theme.Dim, Font = Theme.Font, TextSize = 12,
+        TextXAlignment = Enum.TextXAlignment.Left, ClearTextOnFocus = false,
+        ZIndex = 7, Parent = SearchBar,
+    })
+
+    -- Clear X button inside search bar
+    local SearchClear = New("TextButton", {
+        Text = "×", Size = UDim2.new(0,22,0,22),
+        Position = UDim2.new(1,-26,0.5,-11),
+        BackgroundTransparency = 1, TextColor3 = Theme.Dim,
+        Font = Theme.FontBold, TextSize = 16,
+        Visible = false, ZIndex = 7, Parent = SearchBar,
+    })
+
+    SearchBox.Focused:Connect(function()
+        Tween(searchStroke, {Color=Theme.Accent}, 0.12)
+    end)
+    SearchBox.FocusLost:Connect(function()
+        Tween(searchStroke, {Color=Theme.Border}, 0.12)
+    end)
+    SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
+        local q = SearchBox.Text:lower()
+        SearchClear.Visible = q ~= ""
+        -- filter all label/button rows in all tab pages
+        for _, td in ipairs(Window and Window._tabs or {}) do
+            if td.Page then
+                for _, child in ipairs(td.Page:GetDescendants()) do
+                    if child:IsA("TextLabel") and child.Parent and child.Parent ~= td.Page then
+                        local row = child.Parent
+                        if row:IsA("Frame") and row.Parent == td.Page then
+                            if q == "" then
+                                row.Visible = true
+                            else
+                                row.Visible = child.Text:lower():find(q, 1, true) ~= nil
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end)
+    SearchClear.MouseButton1Click:Connect(function()
+        SearchBox.Text = ""
+    end)
+
+    local ContentArea = New("Frame", {
+        Name = "ContentArea",
+        Size = UDim2.new(1,0,1,-(SEARCH_H+4)),
+        Position = UDim2.new(0,0,0,SEARCH_H+4),
+        BackgroundTransparency = 1,
+        Parent = ContentOuter,
+    })
+
+    -- Window control buttons (pill style, top-right)
+    local function MakeWinBtn(xOff, label, hoverColor, isIcon)
         local b = New("TextButton", {
-            Text = label, Size = UDim2.new(0,22,0,22),
+            Text = label,
+            Size = UDim2.new(0, 28, 0, 28),
             Position = UDim2.new(1, xOff, 0, 8),
             BackgroundColor3 = Theme.Surface2, BorderSizePixel = 0,
             TextColor3 = Theme.Muted, Font = Theme.FontBold,
-            TextSize = 14, ZIndex = 12, Parent = Main,
+            TextSize = isIcon and 16 or 14,
+            ZIndex = 12, Parent = Main,
             AutoButtonColor = false,
         })
-        Corner(6, b)
+        Corner(8, b)
         Stroke(Theme.Border, 1, b)
-        b.MouseEnter:Connect(function() Tween(b, {BackgroundColor3=hoverColor, TextColor3=Theme.Text}, 0.1) end)
+        b.MouseEnter:Connect(function() Tween(b, {BackgroundColor3=hoverColor, TextColor3=Color3.new(1,1,1)}, 0.1) end)
         b.MouseLeave:Connect(function() Tween(b, {BackgroundColor3=Theme.Surface2, TextColor3=Theme.Muted}, 0.1) end)
         return b
     end
-    local CloseBtn = MakeWinBtn(-30, "x", Theme.Red)
-    local MinBtn   = MakeWinBtn(-56, "_", Theme.Amber)
+
+    local CloseBtn  = MakeWinBtn(-34,  "×", Theme.Red)
+    local MinBtn    = MakeWinBtn(-66,  "−", Theme.Amber)
+    local ExpandBtn = MakeWinBtn(-98,  "⤢", Theme.Green, true)
 
     CloseBtn.MouseButton1Click:Connect(function()
         Tween(Main, {Size=UDim2.new(0,WinSize.X.Offset,0,0), BackgroundTransparency=1}, 0.2)
         task.wait(0.22) Gui:Destroy()
     end)
+
     local _minimised = false
     MinBtn.MouseButton1Click:Connect(function()
         _minimised = not _minimised
-        Tween(Main, {Size = _minimised and UDim2.new(0,WinSize.X.Offset,0,40) or WinSize}, 0.22)
-        ContentArea.Visible = not _minimised
+        Tween(Main, {Size = _minimised and UDim2.new(0,WinSize.X.Offset,0,44) or WinSize}, 0.22)
+        ContentOuter.Visible = not _minimised
         Sidebar.Visible = not _minimised
     end)
+
+    local _expanded = false
+    local _prevSize, _prevPos
+    ExpandBtn.MouseButton1Click:Connect(function()
+        _expanded = not _expanded
+        if _expanded then
+            _prevSize = Main.Size
+            _prevPos  = Main.Position
+            Tween(Main, {
+                Size     = UDim2.new(1,-24,1,-24),
+                Position = UDim2.new(0,12,0,12),
+            }, 0.2, Enum.EasingStyle.Quart)
+        else
+            Tween(Main, { Size = _prevSize, Position = _prevPos }, 0.2, Enum.EasingStyle.Quart)
+        end
+    end)
+
 
     local TopDrag = New("Frame", {
         Size = UDim2.new(1,0,0,40), Position = UDim2.new(0,0,0,0),
@@ -2219,87 +2315,27 @@ local Window = NebulaHub:CreateWindow({
     Title = "Nebula Hub",
 })
 
--- AIM TAB
 local AimTab = Window:CreateTab("Aim", {Icon = "crosshair", IconSource = "Phosphor"})
 
 AimTab:AddSection("Aimbot")
-AimTab:AddToggle({
-    Label = "Enable Aimbot",
-    Default = false,
-    Callback = function(state)
-        print("Aimbot:", state)
-    end,
-})
-AimTab:AddSlider({
-    Label = "FOV",
-    Min = 10, Max = 300, Default = 100, Suffix = "px",
-    Callback = function(value)
-        print("FOV:", value)
-    end,
-})
-AimTab:AddDropdown({
-    Label = "Aim Part",
-    Options = {"Head", "Torso", "Nearest"},
-    Default = "Head",
-    Callback = function(value)
-        print("Aim Part:", value)
-    end,
-})
+AimTab:AddToggle({ Label = "Enable Aimbot", Default = false })
+AimTab:AddSlider({ Label = "FOV", Min = 10, Max = 300, Default = 100, Suffix = "px" })
+AimTab:AddDropdown({ Label = "Aim Part", Options = {"Head", "Torso", "Nearest"}, Default = "Head" })
 AimTab:AddSeparator()
 AimTab:AddSection("Triggerbot")
-AimTab:AddToggle({
-    Label = "Enable Triggerbot",
-    Default = false,
-    Callback = function(state)
-        print("Triggerbot:", state)
-    end,
-})
-AimTab:AddKeybind({
-    Label = "Aim Keybind",
-    Default = Enum.KeyCode.E,
-    Action = function()
-        print("Aim key pressed")
-    end,
-})
+AimTab:AddToggle({ Label = "Enable Triggerbot", Default = false })
+AimTab:AddKeybind({ Label = "Aim Keybind", Default = Enum.KeyCode.E })
 
--- VISUALS TAB
 local VisualsTab = Window:CreateTab("Visuals", {Icon = "eye", IconSource = "Phosphor"})
 
 VisualsTab:AddSection("ESP")
-VisualsTab:AddToggle({
-    Label = "Player ESP",
-    Default = false,
-    Callback = function(state)
-        print("ESP:", state)
-    end,
-})
-VisualsTab:AddToggle({
-    Label = "Chams",
-    Default = false,
-    Callback = function(state)
-        print("Chams:", state)
-    end,
-})
-VisualsTab:AddColorPicker({
-    Label = "ESP Color",
-    Default = Color3.fromRGB(94, 167, 255),
-    Callback = function(color)
-        print("ESP Color:", color)
-    end,
-})
+VisualsTab:AddToggle({ Label = "Player ESP", Default = false })
+VisualsTab:AddToggle({ Label = "Chams", Default = false })
+VisualsTab:AddColorPicker({ Label = "ESP Color", Default = Color3.fromRGB(94, 167, 255) })
 VisualsTab:AddSeparator()
 VisualsTab:AddSection("World")
-VisualsTab:AddToggle({
-    Label = "Fullbright",
-    Default = false,
-    Callback = function(state)
-        print("Fullbright:", state)
-    end,
-})
+VisualsTab:AddToggle({ Label = "Fullbright", Default = false })
 VisualsTab:AddSlider({
-    Label = "Field of View",
-    Min = 70, Max = 120, Default = 90,
-    Callback = function(value)
-        workspace.CurrentCamera.FieldOfView = value
-    end,
+    Label = "Field of View", Min = 70, Max = 120, Default = 90,
+    Callback = function(v) workspace.CurrentCamera.FieldOfView = v end,
 })
