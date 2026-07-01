@@ -1,3 +1,7 @@
+-- STANDALONE — no HttpGet needed, lib is embedded directly below
+-- Paste this entire file into your executor and run it
+
+local NebulaHub = (function()
 local NebulaHub = {}
 NebulaHub.__index = NebulaHub
 
@@ -2086,3 +2090,95 @@ function NebulaHub:CreateWindow(config)
 end
 
 return NebulaHub
+end)()
+
+-- ====== TABS ======
+
+local Window = NebulaHub:CreateWindow({
+    Title = "Nebula Hub",
+})
+
+-- AIM TAB
+local AimTab = Window:CreateTab("Aim", {Icon = "crosshair", IconSource = "Phosphor"})
+
+AimTab:AddSection("Aimbot")
+AimTab:AddToggle({
+    Label = "Enable Aimbot",
+    Default = false,
+    Callback = function(state)
+        print("Aimbot:", state)
+    end,
+})
+AimTab:AddSlider({
+    Label = "FOV",
+    Min = 10, Max = 300, Default = 100, Suffix = "px",
+    Callback = function(value)
+        print("FOV:", value)
+    end,
+})
+AimTab:AddDropdown({
+    Label = "Aim Part",
+    Options = {"Head", "Torso", "Nearest"},
+    Default = "Head",
+    Callback = function(value)
+        print("Aim Part:", value)
+    end,
+})
+AimTab:AddSeparator()
+AimTab:AddSection("Triggerbot")
+AimTab:AddToggle({
+    Label = "Enable Triggerbot",
+    Default = false,
+    Callback = function(state)
+        print("Triggerbot:", state)
+    end,
+})
+AimTab:AddKeybind({
+    Label = "Aim Keybind",
+    Default = Enum.KeyCode.E,
+    Action = function()
+        print("Aim key pressed")
+    end,
+})
+
+-- VISUALS TAB
+local VisualsTab = Window:CreateTab("Visuals", {Icon = "eye", IconSource = "Phosphor"})
+
+VisualsTab:AddSection("ESP")
+VisualsTab:AddToggle({
+    Label = "Player ESP",
+    Default = false,
+    Callback = function(state)
+        print("ESP:", state)
+    end,
+})
+VisualsTab:AddToggle({
+    Label = "Chams",
+    Default = false,
+    Callback = function(state)
+        print("Chams:", state)
+    end,
+})
+VisualsTab:AddColorPicker({
+    Label = "ESP Color",
+    Default = Color3.fromRGB(94, 167, 255),
+    Callback = function(color)
+        print("ESP Color:", color)
+    end,
+})
+VisualsTab:AddSeparator()
+VisualsTab:AddSection("World")
+VisualsTab:AddToggle({
+    Label = "Fullbright",
+    Default = false,
+    Callback = function(state)
+        print("Fullbright:", state)
+    end,
+})
+VisualsTab:AddSlider({
+    Label = "Field of View",
+    Min = 70, Max = 120, Default = 90,
+    Callback = function(value)
+        workspace.CurrentCamera.FieldOfView = value
+    end,
+})
